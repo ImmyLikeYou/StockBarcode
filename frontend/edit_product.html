@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Product</title>
+    <link rel="stylesheet" data-href="/styles/edit_product.css">
+    <script>
+        (function() {
+            const link = document.querySelector('link[data-href]');
+            if (!link) return;
+            const href = link.getAttribute('data-href');
+            link.setAttribute('href', location.protocol === 'file:' ? href.replace(/^\//, '') : href);
+        })();
+    </script>
+    <script type="module" data-src="/scripts/route_handler.js"></script>
+</head>
+
+<body>
+    <nav id="sidebar">
+        <h2>Menu</h2>
+        <ul>
+            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
+            <li><a href="/add-product">➕ Add Product</a></li>
+            <li><a href="/item-list" class="active">📝 Item List</a></li>
+            <li><a href="/transactions">📈 Transactions</a></li>
+            <li><a href="/reports">📄 Reports</a></li>
+        </ul>
+    </nav>
+
+    <main id="main-content">
+        <div id="container">
+            <h1>Edit Product</h1>
+            <form id="editProductForm">
+                <div> <label for="productBarcode">Barcode (Read-only):</label> <input type="text" id="productBarcode" value="" readonly> </div>
+                <div> <label for="productName">Stock Barcode:</label> <input type="text" id="productName" value="" required> </div>
+                <button type="submit">Update Stock Barcode</button>
+            </form>
+            <div id="message"></div>
+        </div>
+    </main>
+
+    <script type="module" data-src="/scripts/edit_product.js"></script>
+</body>
+
+</html>

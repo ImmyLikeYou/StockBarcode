@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports</title>
+    <link rel="stylesheet" data-href="/styles/reports.css">
+    <script>
+        (function() {
+            const link = document.querySelector('link[data-href]');
+            if (!link) return;
+            const href = link.getAttribute('data-href');
+            link.setAttribute('href', location.protocol === 'file:' ? href.replace(/^\//, '') : href);
+        })();
+    </script>
+</head>
+
+<!-- route mapping / data-href handled at end of body -->
+
+<body>
+    <nav id="sidebar">
+        <h2>Menu</h2>
+        <ul>
+            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
+            <li><a href="/add-product">➕ Add Product</a></li>
+            <li><a href="/item-list">📝 Item List</a></li>
+            <li><a href="/transactions">📈 Transactions</a></li>
+            <li><a href="/reports" class="active">📄 Reports</a></li>
+        </ul>
+    </nav>
+
+    <main id="main-content">
+        <div class="container">
+            <h1>Reports</h1>
+            <h2>Most Active Items</h2>
+            <p>Items ranked by the total number of transactions (Add, Cut, Adjust).</p>
+            <table id="reportTable">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Stock Barcode</th>
+                        <th>Barcode</th>
+                        <th>Transaction Count</th>
+                    </tr>
+                </thead>
+                <tbody id="reportTableBody">
+                    <tr>
+                        <td colspan="4" style="text-align: center;">Loading report...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script type="module" data-src="/scripts/reports.js"></script>
+    <script>
+        (function() {
+            // set script src attributes
+            const scripts = document.querySelectorAll('script[data-src]');
+            scripts.forEach(s => {
+                const d = s.getAttribute('data-src');
+                if (!d) return;
+                s.setAttribute('src', location.protocol === 'file:' ? d.replace(/^\//, '') : d);
+            });
+
+            // set anchor hrefs from data-href
+            document.querySelectorAll('a[data-href]').forEach(a => {
+                const data = a.getAttribute('data-href');
+                if (!data) return;
+                a.setAttribute('href', location.protocol === 'file:' ? data.replace(/^\//, '') : data);
+            });
+
+            // when under file://, rewrite server-style links to local filenames
+            if (location.protocol !== 'file:') return;
+            const routeMap = {
+                '/': 'barcode_receiver.html',
+                '/add-product': 'add_product.html',
+                '/edit-product': 'edit_product.html',
+                '/item-list': 'item_list.html',
+                '/item-history': 'item_history.html',
+                '/transactions': 'transactions.html',
+                '/reports': 'reports.html'
+            };
+            document.querySelectorAll('a[href^="/"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (!href) return;
+                if (href.startsWith('/edit-product/')) {
+                    const barcode = href.split('/').pop();
+                    a.setAttribute('href', `edit_product.html?barcode=${encodeURIComponent(barcode)}`);
+                } else if (href.startsWith('/item-history/')) {
+                    const barcode = href.split('/').pop();
+                    a.setAttribute('href', `item_history.html?barcode=${encodeURIComponent(barcode)}`);
+                } else {
+                    const base = href.split('?')[0].replace(/\/$/, '');
+                    if (routeMap[base]) a.setAttribute('href', routeMap[base]);
+                }
+            });
+        })();
+    </script>
+</body>
+
+</html>

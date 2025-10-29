@@ -1,0 +1,64 @@
+{
+    "name": "barcode-inventory-system",
+    "version": "1.0.0",
+    "description": "Barcode inventory system desktop app",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron-forge start",
+        "server": "node server.js",
+        "dev": "npm-run-all --parallel start server",
+        "build": "electron-forge package",
+        "make": "electron-forge make",
+        "publish": "electron-forge publish",
+        "lint": "echo \"No linting configured\"",
+        "sync-data": "node scripts/sync-data.js"
+    },
+    "keywords": ["barcode", "inventory", "electron", "nodejs"],
+    "author": "tinnakit",
+    "license": "ISC",
+    "dependencies": {
+        "cors": "^2.8.5",
+        "electron-is-dev": "^3.0.1",
+        "electron-squirrel-startup": "^1.0.1",
+        "express": "^4.21.2"
+    },
+    "devDependencies": {
+        "@electron-forge/cli": "^7.10.2",
+        "@electron-forge/maker-deb": "^7.10.2",
+        "@electron-forge/maker-rpm": "^7.10.2",
+        "@electron-forge/maker-squirrel": "^7.10.2",
+        "@electron-forge/maker-zip": "^7.10.2",
+        "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
+        "@electron-forge/plugin-fuses": "^7.10.2",
+        "@electron/fuses": "^1.8.0",
+        "npm-run-all": "^4.1.5",
+        "electron": "^31.7.7"
+    },
+    "config": {
+        "forge": {
+            "packagerConfig": {
+                "asar": true,
+                "extraResources": [
+                    "./frontend"
+                ]
+            },
+            "makers": [{
+                    "name": "@electron-forge/maker-squirrel",
+                    "config": {}
+                },
+                {
+                    "name": "@electron-forge/maker-zip",
+                    "platforms": ["darwin"]
+                },
+                {
+                    "name": "@electron-forge/maker-deb",
+                    "config": {}
+                },
+                {
+                    "name": "@electron-forge/maker-rpm",
+                    "config": {}
+                }
+            ]
+        }
+    }
+}

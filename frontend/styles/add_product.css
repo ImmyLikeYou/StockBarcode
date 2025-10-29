@@ -1,0 +1,77 @@
+body {
+    font-family: sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+    display: flex; /* Use flexbox */
+}
+
+/* Sidebar Styles */
+#sidebar {
+    width: 200px;
+    background-color: #343a40; /* Dark background */
+    color: white;
+    padding: 20px;
+    height: 100vh; /* Full viewport height */
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    position: fixed; /* Keep it fixed on the left */
+    left: 0;
+    top: 0;
+}
+#sidebar h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #495057;
+    padding-bottom: 10px;
+}
+#sidebar ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+#sidebar ul li {
+    margin-bottom: 10px;
+}
+#sidebar ul li a {
+    color: #adb5bd; /* Lighter text */
+    text-decoration: none;
+    font-size: 1.1em;
+    display: block; /* Make the whole area clickable */
+    padding: 8px;
+    border-radius: 4px;
+}
+#sidebar ul li a:hover,
+#sidebar ul li a.active { /* Style for the current page */
+    background-color: #495057;
+    color: white;
+}
+
+/* Main Content Area */
+#main-content {
+    flex-grow: 1; /* Take up remaining space */
+    padding: 20px;
+    margin-left: 240px; /* Push content past the sidebar */
+    display: flex; /* Center the form container */
+    justify-content: center; /* Center horizontally */
+    align-items: flex-start; /* Align form to the top */
+}
+
+#container {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 100%;
+    max-width: 600px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+h1 { text-align: center; }
+
+form div { margin-bottom: 15px; }
+form label { display: block; margin-bottom: 5px; font-weight: bold; }
+form input[type="text"] { width: 100%; padding: 10px; font-size: 1.1em; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+form button { background-color: #28a745; color: white; border: none; padding: 12px 20px; font-size: 1.1em; border-radius: 4px; cursor: pointer; width: 100%; }
+#result { margin-top: 20px; border-top: 2px solid #eee; padding-top: 20px; text-align: center; display: none; }
+#result h2 { margin-top: 0; }
+#newBarcodeDisplay { width: 300px; margin: 10px auto; }
+#errorMessage { color: red; font-weight: bold; }
+#saveButton { background-color: #007bff; margin-top: 10px; color: white; border: none; padding: 10px 15px; font-size: 1em; border-radius: 4px; cursor: pointer; }
+#tempCanvas { display: none; }

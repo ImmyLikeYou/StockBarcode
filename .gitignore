@@ -1,0 +1,39 @@
+# Node.js dependencies
+node_modules/
+
+# Electron Forge outputs
+out/
+release/
+dist/
+
+# Local app-data (user data) - do NOT commit
+app-data/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
+
+# Environment files
+.env
+
+# Package artifacts
+*.tgz
+
+# Built/packaged apps
+*.exe
+*.AppImage
+*.deb
+*.rpm
+
+# Misc
+coverage/

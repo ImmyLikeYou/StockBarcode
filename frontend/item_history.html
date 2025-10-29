@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Item History</title>
+    <link rel="stylesheet" data-href="/styles/item_history.css">
+    <script>
+        (function() {
+            const link = document.querySelector('link[data-href]');
+            if (!link) return;
+            const href = link.getAttribute('data-href');
+            link.setAttribute('href', location.protocol === 'file:' ? href.replace(/^\//, '') : href);
+        })();
+    </script>
+</head>
+
+<body>
+    <nav id="sidebar">
+        <h2>Menu</h2>
+        <ul>
+            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
+            <li><a href="/add-product">➕ Add Product</a></li>
+            <li><a href="/item-list" class="active">📝 Item List</a></li>
+            <li><a href="/transactions">📈 Transactions</a></li>
+            <li><a href="/reports">📄 Reports</a></li>
+        </ul>
+    </nav>
+
+    <main id="main-content">
+        <div class="container">
+            <a data-href="/item-list" class="back-link">&larr; Back to Item List</a>
+            <h1 id="historyTitle">Transaction History</h1>
+            <p><strong id="historyBarcode">Barcode: </strong></p>
+
+            <div class="filter-controls"> <label for="historyDateFilter">Filter by Date:</label> <input type="date" id="historyDateFilter"> <button id="clearHistoryFilter">Show All</button> </div>
+            <table id="historyTable">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Time</th>
+                        <th>Size</th>
+                        <th>Type</th>
+                        <th>Amount Changed</th>
+                        <th>New Stock (Size)</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <tr>
+                        <td colspan="6" style="text-align: center;">Loading history...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        // Support ?barcode=123 or path /item-history/123
+        function getBarcodeFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            let bc = params.get('barcode');
+            if (bc) return bc;
+            const path = window.location.pathname || '';
+            const parts = path.split('/').filter(Boolean);
+            if (parts.length > 0) {
+                const last = parts[parts.length - 1];
+                if (!last.match(/^item-history(\.html)?$/i)) return last;
+            }
+            if (window.location.hash) {
+                const h = window.location.hash.replace('#', '');
+                if (h) return h;
+            }
+            return null;
+        }
+        const productBarcode = getBarcodeFromUrl();
+        const historyTitle = document.getElementById('historyTitle');
+        const historyBarcode = document.getElementById('historyBarcode');
+        if (productBarcode) {
+            historyBarcode.textContent = `Barcode: ${productBarcode}`;
+        } else {
+            historyTitle.textContent = 'Transaction History (Error: No Barcode)';
+        }
+    </script>
+    <script type="module" data-src="/scripts/item_history.js"></script>
+    <script>
+        (function() {
+            // set script src attributes
+            const scripts = document.querySelectorAll('script[data-src]');
+            scripts.forEach(s => {
+                const d = s.getAttribute('data-src');
+                if (!d) return;
+                s.setAttribute('src', location.protocol === 'file:' ? d.replace(/^\//, '') : d);
+            });
+
+            // set anchor hrefs from data-href
+            document.querySelectorAll('a[data-href]').forEach(a => {
+                const data = a.getAttribute('data-href');
+                if (!data) return;
+                a.setAttribute('href', location.protocol === 'file:' ? data.replace(/^\//, '') : data);
+            });
+
+            // when under file://, rewrite server-style links to local filenames
+            if (location.protocol !== 'file:') return;
+            const routeMap = {
+                '/': 'barcode_receiver.html',
+                '/add-product': 'add_product.html',
+                '/edit-product': 'edit_product.html',
+                '/item-list': 'item_list.html',
+                '/item-history': 'item_history.html',
+                '/transactions': 'transactions.html',
+                '/reports': 'reports.html'
+            };
+            document.querySelectorAll('a[href^="/"]').forEach(a => {
+                const href = a.getAttribute('href');
+                if (!href) return;
+                if (href.startsWith('/edit-product/')) {
+                    const barcode = href.split('/').pop();
+                    a.setAttribute('href', `edit_product.html?barcode=${encodeURIComponent(barcode)}`);
+                } else if (href.startsWith('/item-history/')) {
+                    const barcode = href.split('/').pop();
+                    a.setAttribute('href', `item_history.html?barcode=${encodeURIComponent(barcode)}`);
+                } else {
+                    const base = href.split('?')[0].replace(/\/$/, '');
+                    if (routeMap[base]) a.setAttribute('href', routeMap[base]);
+                }
+            });
+        })();
+    </script>
+</body>
+
+</html>
