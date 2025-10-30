@@ -1,10 +1,3 @@
-Here are the instructions to update your `README.md` file.
-
-### Phase 1: Copy the New README Content
-
-First, copy the complete text for the new README. I've placed it in the code block below. You can use the "Copy" icon in the top-right corner of the block.
-
-````markdown
 # StockBarcode: Barcode Inventory System
 
 StockBarcode is a comprehensive inventory management application built with Electron and Node.js. It allows for tracking stock levels (Add, Cut, Adjust), managing products, and viewing detailed transaction histories.
