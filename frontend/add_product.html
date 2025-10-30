@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add New Product</title>
+    <title data-i18n-key="page_title_add_product">Add New Product</title>
     <link rel="stylesheet" data-href="/styles/add_product.css">
     <script>
         (function() {
@@ -16,35 +16,46 @@
     </script>
 </head>
 
-<!-- route mapping / data-href handled at end of body -->
-
 <body>
     <nav id="sidebar">
-        <h2>Menu</h2>
+        <div id="lang-switcher">
+            <button id="lang-en">EN</button>
+            <button id="lang-th">TH</button>
+        </div>
+        <h2 data-i18n-key="nav_menu">Menu</h2>
         <ul>
-            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
-            <li><a href="/add-product" class="active">➕ Add Product</a></li>
-            <li><a href="/item-list">📝 Item List</a></li>
-            <li><a href="/transactions">📈 Transactions</a></li>
-            <li><a href="/reports">📄 Reports</a></li>
+            <li><a href="barcode_receiver.html" data-i18n-key="nav_inventory">📊 Inventory</a></li>
+            <li><a href="/add-product" class="active" data-i18n-key="nav_add_product">➕ Add Product</a></li>
+            <li><a href="/item-list" data-i18n-key="nav_item_list">📝 Item List</a></li>
+            <li><a href="/transactions" data-i18n-key="nav_transactions">📈 Transactions</a></li>
+            <li><a href="/reports" data-i18n-key="nav_reports">📄 Reports</a></li>
         </ul>
     </nav>
 
     <main id="main-content">
         <div id="container">
-            <h1>Add a New Product</h1>
+            <h1 data-i18n-key="product_add_title">Add a New Product</h1>
             <form id="addProductForm">
-                <div> <label for="productName">Stock Barcode:</label> <input type="text" id="productName" placeholder="e.g., Green T-Shirt" required> </div>
-                <div> <label for="principalCode">Principal Code (First 4 digits):</label> <input type="text" id="principalCode" placeholder="1001" maxlength="4" pattern="\d{4}" title="Must be 4 digits" required> </div>
-                <div> <label for="typeCode">Type Code (Next 4 digits):</label> <input type="text" id="typeCode" placeholder="2002" maxlength="4" pattern="\d{4}" title="Must be 4 digits" required> </div>
-                <button type="submit">Create Product</button>
+                <div>
+                    <label for="productName" data-i18n-key="product_add_name_label">Stock Barcode:</label>
+                    <input type="text" id="productName" placeholder="e.g., Green T-Shirt" data-i18n-key="product_add_name_placeholder" data-i18n-placeholder="true" required>
+                </div>
+                <div>
+                    <label for="principalCode" data-i18n-key="product_add_principal_label">Principal Code (First 4 digits):</label>
+                    <input type="text" id="principalCode" placeholder="1001" data-i18n-key="product_add_principal_placeholder" data-i18n-placeholder="true" maxlength="4" pattern="\d{4}" title="Must be 4 digits" required>
+                </div>
+                <div>
+                    <label for="typeCode" data-i18n-key="product_add_type_label">Type Code (Next 4 digits):</label>
+                    <input type="text" id="typeCode" placeholder="2002" data-i18n-key="product_add_type_placeholder" data-i18n-placeholder="true" maxlength="4" pattern="\d{4}" title="Must be 4 digits" required>
+                </div>
+                <button type="submit" data-i18n-key="product_add_button">Create Product</button>
             </form>
             <div id="result">
-                <h2>Product Created!</h2>
+                <h2 data-i18n-key="product_created_success">Product Created!</h2>
                 <p id="resultName"></p>
-                <p>New Barcode:</p>
+                <p data-i18n-key="product_created_new_barcode">New Barcode:</p>
                 <svg id="newBarcodeDisplay"></svg>
-                <button id="saveButton" type="button">Save as PNG</button>
+                <button id="saveButton" type="button" data-i18n-key="product_created_save_png">Save as PNG</button>
                 <canvas id="tempCanvas"></canvas>
                 <p id="errorMessage"></p>
             </div>

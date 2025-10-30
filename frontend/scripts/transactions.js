@@ -1,4 +1,6 @@
 import { loadData } from './_api.js';
+// 1. Import i18n functions
+import { initializeI18n, setLanguage, t } from './i18n.js';
 
 const transactionTableBody = document.getElementById('transactionTableBody');
 const exportButton = document.getElementById('exportButton');
@@ -36,7 +38,8 @@ async function loadTransactionData() {
         applyFilter(); // Initial display
     } catch (err) {
         console.error('Error loading transaction data:', err);
-        transactionTableBody.innerHTML = '<tr><td colspan="6" style="color: red; text-align: center;">Error loading transactions.</td></tr>'; // Updated colspan
+        // 2. Use translation key for error
+        transactionTableBody.innerHTML = `<tr><td colspan="6" style="color: red; text-align: center;">${t('error_loading_transactions')}</td></tr>`;
     }
 }
 
@@ -139,13 +142,11 @@ function showSuggestions() {
     }
 }
 
-// renderTable, renderChart, exportToCsv functions remain the same as before
-// Make sure renderTable has colspan="6" for error/empty messages
-
 function renderTable() {
     transactionTableBody.innerHTML = '';
     if (filteredTransactions.length === 0) {
-        transactionTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No matching transactions found.</td></tr>';
+        // 3. Use translation key for empty message
+        transactionTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">${t('transactions_no_match')}</td></tr>`;
         return;
     }
     const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
@@ -176,15 +177,35 @@ function renderChart() {
     const dataIn = sortedDates.map(date => dailyData[date].in);
     const dataOut = sortedDates.map(date => dailyData[date].out);
     if (transactionChart) transactionChart.destroy();
+
+    // 4. Use translation keys for chart labels
     transactionChart = new Chart(ctx, {
         type: 'bar',
-        data: { labels, datasets: [{ label: 'Stock Added', data: dataIn, backgroundColor: 'rgba(75, 192, 192, 0.6)', borderColor: 'rgba(75, 192, 192, 1)', borderWidth: 1 }, { label: 'Stock Cut', data: dataOut, backgroundColor: 'rgba(255, 99, 132, 0.6)', borderColor: 'rgba(255, 99, 132, 1)', borderWidth: 1 }] },
+        data: {
+            labels,
+            datasets: [{
+                    label: t('transactions_graph_legend_in'),
+                    data: dataIn,
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: t('transactions_graph_legend_out'),
+                    data: dataOut,
+                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    borderWidth: 1
+                }
+            ]
+        },
         options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: 'Amount' } }, x: { title: { display: true, text: 'Date' } } }, plugins: { title: { display: true, text: 'Daily Stock Transactions (In/Out)' } } }
     });
 }
 
 function exportToCsv() {
-    if (filteredTransactions.length === 0) { alert("No data to export."); return; }
+    // 5. Use translation key for alert
+    if (filteredTransactions.length === 0) { alert(t('transactions_no_export_data')); return; }
     const headers = ["Date", "Time", "Item Name", "Type", "Amount", "New Stock Level"];
     const csvRows = [headers.join(",")];
     const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
@@ -227,7 +248,25 @@ document.addEventListener('click', (event) => {
     }
 });
 
+// 6. Add language switcher listeners
+// Add language switcher listeners
+const langEnButton = document.getElementById('lang-en');
+if (langEnButton) {
+    langEnButton.addEventListener('click', () => setLanguage('en'));
+}
+
+const langThButton = document.getElementById('lang-th');
+if (langThButton) {
+    langThButton.addEventListener('click', () => setLanguage('th'));
+}
+
 
 // --- Initial Load ---
-handleCategoryChange(); // Set initial input visibility
-loadTransactionData();
+// 7. Create new init function
+async function initializeApp() {
+    await initializeI18n();
+    handleCategoryChange(); // Set initial input visibility
+    loadTransactionData();
+}
+
+initializeApp();

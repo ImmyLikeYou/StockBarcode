@@ -1,6 +1,8 @@
 // edit_product.js
 import { getProduct, updateProduct } from './_api.js';
 import { navigateTo, getRouteParams } from './route_handler.js';
+// 1. Import i18n functions - THE FIX IS HERE (added parseError)
+import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
 
 const editForm = document.getElementById('editProductForm');
 const productBarcodeEl = document.getElementById('productBarcode');
@@ -13,7 +15,7 @@ const productBarcodeValue = routeParams.barcode;
 // --- Load product details on page load ---
 async function loadProductDetails(barcode) {
     if (!barcode) {
-        showMessage('Error: No barcode specified in URL.', 'error');
+        showMessage(t('error_no_barcode'), 'error');
         editForm.style.display = 'none';
         return;
     }
@@ -24,7 +26,9 @@ async function loadProductDetails(barcode) {
         productNameInput.value = productData.name;
     } catch (err) {
         console.error('Error loading product details:', err);
-        showMessage('Error: ' + err.message, 'error');
+        // This block will now work because parseError is imported
+        const { key, context } = parseError(err);
+        showMessage(t(key, context), 'error');
         editForm.style.display = 'none';
     }
 }
@@ -38,19 +42,21 @@ editForm.addEventListener('submit', async(event) => {
     const newName = productNameInput.value.trim();
 
     if (!barcode || !newName) {
-        showMessage('Product name cannot be empty.', 'error');
+        showMessage(t('error_name_empty'), 'error');
         return;
     }
 
     try {
         await updateProduct({ barcode, productName: newName });
-        showMessage('✅ Product name updated successfully!', 'success');
+        showMessage(t('success_product_updated'), 'success');
         setTimeout(() => {
             navigateTo('/item-list');
         }, 1500);
     } catch (err) {
         console.error('Error updating product:', err);
-        showMessage('Error: ' + err.message, 'error');
+        // This block will also now work
+        const { key, context } = parseError(err);
+        showMessage(t(key, context), 'error');
     }
 });
 
@@ -61,5 +67,21 @@ function showMessage(msg, type) {
     messageDiv.style.display = 'block';
 }
 
+// --- Language Switcher Listeners ---
+const langEnButton = document.getElementById('lang-en');
+if (langEnButton) {
+    langEnButton.addEventListener('click', () => setLanguage('en'));
+}
+
+const langThButton = document.getElementById('lang-th');
+if (langThButton) {
+    langThButton.addEventListener('click', () => setLanguage('th'));
+}
+
 // --- Run on startup ---
-loadProductDetails(productBarcodeValue);
+async function initializeApp() {
+    await initializeI18n();
+    loadProductDetails(productBarcodeValue);
+}
+
+initializeApp();

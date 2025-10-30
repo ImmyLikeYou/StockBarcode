@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Item List</title>
+    <title data-i18n-key="page_title_item_list">Item List</title>
     <link rel="stylesheet" data-href="/styles/item_list.css">
     <script>
         (function() {
@@ -16,36 +16,38 @@
     </script>
 </head>
 
-<!-- route mapping / data-href handled at end of body -->
-
 <body>
     <nav id="sidebar">
-        <h2>Menu</h2>
+        <div id="lang-switcher">
+            <button id="lang-en">EN</button>
+            <button id="lang-th">TH</button>
+        </div>
+        <h2 data-i18n-key="nav_menu">Menu</h2>
         <ul>
-            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
-            <li><a href="/add-product">➕ Add Product</a></li>
-            <li><a href="/item-list" class="active">📝 Item List</a></li>
-            <li><a href="/transactions">📈 Transactions</a></li>
-            <li><a href="/reports">📄 Reports</a></li>
+            <li><a href="barcode_receiver.html" data-i18n-key="nav_inventory">📊 Inventory</a></li>
+            <li><a href="/add-product" data-i18n-key="nav_add_product">➕ Add Product</a></li>
+            <li><a href="/item-list" class="active" data-i18n-key="nav_item_list">📝 Item List</a></li>
+            <li><a href="/transactions" data-i18n-key="nav_transactions">📈 Transactions</a></li>
+            <li><a href="/reports" data-i18n-key="nav_reports">📄 Reports</a></li>
         </ul>
     </nav>
 
     <main id="main-content">
         <div id="item-list-container">
-            <h1>Product Item List</h1>
+            <h1 data-i18n-key="list_title">Product Item List</h1>
             <table id="itemTable">
                 <thead>
                     <tr>
-                        <th>Barcode (1-12)</th>
-                        <th>Stock Barcode</th>
-                        <th>Download</th>
-                        <th>Edit</th>
-                        <th>History</th>
+                        <th data-i18n-key="list_table_barcode">Barcode (1-12)</th>
+                        <th data-i18n-key="list_table_name">Stock Barcode</th>
+                        <th data-i18n-key="list_table_download">Download</th>
+                        <th data-i18n-key="list_table_edit">Edit</th>
+                        <th data-i18n-key="list_table_history">History</th>
                     </tr>
                 </thead>
                 <tbody id="itemTableBody">
                     <tr>
-                        <td colspan="5" style="text-align: center;">Loading...</td>
+                        <td colspan="5" style="text-align: center;" data-i18n-key="list_loading">Loading...</td>
                     </tr>
                 </tbody>
             </table>

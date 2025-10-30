@@ -22,6 +22,8 @@ console.log('  PRODUCTS_PATH ->', PRODUCTS_PATH);
 // --- 3. Middleware ---
 app.use(express.json());
 app.use(cors());
+// 1. Serve the new locales directory
+app.use('/locales', express.static(path.join(__dirname, 'frontend/locales')));
 app.use(express.static(path.join(__dirname, 'frontend'))); // Serves all files in /frontend
 
 // --- 4. Helper Functions ---
@@ -138,13 +140,15 @@ app.put('/api/product/:barcode', (req, res) => {
         const { productName } = req.body; // Get new name from request body
 
         if (!productName) {
-            return res.status(400).json({ message: 'Product name is required.' });
+            // 2. Send error key
+            return res.status(400).json({ message: 'error_name_empty' });
         }
 
         const products = loadFile(PRODUCTS_PATH);
 
         if (!products[barcode]) {
-            return res.status(404).json({ message: 'Product not found.' });
+            // 3. Send error key
+            return res.status(404).json({ message: 'error_product_not_found' });
         }
 
         // Update the name
@@ -168,7 +172,8 @@ app.get('/api/product/:barcode', (req, res) => {
         const { barcode } = req.params;
         const products = loadFile(PRODUCTS_PATH);
         const productName = products[barcode];
-        if (!productName) return res.status(404).json({ message: 'Product not found' });
+        // 4. Send error key
+        if (!productName) return res.status(404).json({ message: 'error_product_not_found' });
         res.json({ barcode, name: productName });
     } catch (err) {
         console.error('Error fetching product:', err);
@@ -193,7 +198,8 @@ app.post('/api/product', (req, res) => {
     try {
         const { productName, principalCode, typeCode } = req.body;
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
-            return res.status(400).json({ message: 'Invalid data. Check all fields.' });
+            // 5. Send error key
+            return res.status(400).json({ message: 'error_invalid_data' });
         }
 
         const products = loadFile(PRODUCTS_PATH);
@@ -202,7 +208,8 @@ app.post('/api/product', (req, res) => {
         const newBarcode = `${principalCode}${typeCode}${newId}`;
 
         if (products[newBarcode]) {
-            return res.status(500).json({ message: 'Barcode collision. Please try again.' });
+            // 6. Send error key
+            return res.status(500).json({ message: 'error_barcode_collision' });
         }
 
         products[newBarcode] = productName;
@@ -240,7 +247,8 @@ app.delete('/api/product/:barcode', (req, res) => {
             saveFile(INVENTORY_PATH, inventory);
             res.status(200).json({ message: 'Product deleted successfully' });
         } else {
-            res.status(404).json({ message: 'Product not found' });
+            // 7. Send error key
+            res.status(404).json({ message: 'error_product_not_found' });
         }
     } catch (err) {
         console.error('Server error deleting product:', err);
@@ -254,7 +262,8 @@ app.post('/api/transaction', (req, res) => {
     if (!lookupValue || isNaN(amount) || !mode || !size ||
         ((mode === 'add' || mode === 'cut') && amount < 1) ||
         (mode === 'adjust' && amount < 0)) {
-        return res.status(400).json({ message: 'Error: Invalid data in request.' });
+        // 8. Send error key
+        return res.status(400).json({ message: 'error_invalid_data' });
     }
     try {
         const inventory = loadFile(INVENTORY_PATH);
@@ -263,13 +272,21 @@ app.post('/api/transaction', (req, res) => {
         const itemName = products[lookupValue] || "Unknown Item";
 
         if (!inventory.hasOwnProperty(lookupValue)) {
-            return res.status(404).json({ message: `Error: Item code ${lookupValue} not found in inventory.` });
+            // 9. Send error key and context
+            return res.status(404).json({
+                message: 'error_item_not_found',
+                context: { itemCode: lookupValue }
+            });
         }
         if (!inventory[lookupValue].hasOwnProperty(size)) {
             if (mode === 'add' || mode === 'adjust') {
                 inventory[lookupValue][size] = 0;
             } else {
-                return res.status(404).json({ message: `Error: Size "${size}" not found for ${itemName}. Add/Adjust stock first.` });
+                // 10. Send error key and context
+                return res.status(404).json({
+                    message: 'error_size_not_found',
+                    context: { size: size, item: itemName }
+                });
             }
         }
 
@@ -282,10 +299,11 @@ app.post('/api/transaction', (req, res) => {
         if (mode === 'cut') {
             // --- NEW CHECK ---
             if (currentStock < amount) {
-                // Not enough stock! Send an error response.
-                return res.status(400).json({ // Use 400 Bad Request
-                    message: `Error: Not enough stock for ${itemName} (${size}). Only ${currentStock} left.`,
-                    errorType: 'INSUFFICIENT_STOCK' // Add a custom error type
+                // 11. Send error key and context
+                return res.status(400).json({
+                    message: 'error_not_enough_stock',
+                    errorType: 'INSUFFICIENT_STOCK',
+                    context: { item: `${itemName} (${size})`, stock: currentStock }
                 });
             }
             // --- END NEW CHECK ---
@@ -319,7 +337,7 @@ app.post('/api/transaction', (req, res) => {
         saveFile(TRANSACTIONS_PATH, transactions);
 
         res.status(200).json({
-            message: message,
+            message: message, // This simple OK message is fine for the quick log
             newTransaction: newTransaction,
             updatedItem: { itemCode: lookupValue, size: size, newStockLevel: newStock }
         });

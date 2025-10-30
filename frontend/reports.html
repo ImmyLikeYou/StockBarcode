@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports</title>
+    <title data-i18n-key="page_title_reports">Reports</title>
     <link rel="stylesheet" data-href="/styles/reports.css">
     <script>
         (function() {
@@ -16,37 +16,39 @@
     </script>
 </head>
 
-<!-- route mapping / data-href handled at end of body -->
-
 <body>
     <nav id="sidebar">
-        <h2>Menu</h2>
+        <div id="lang-switcher">
+            <button id="lang-en">EN</button>
+            <button id="lang-th">TH</button>
+        </div>
+        <h2 data-i18n-key="nav_menu">Menu</h2>
         <ul>
-            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
-            <li><a href="/add-product">➕ Add Product</a></li>
-            <li><a href="/item-list">📝 Item List</a></li>
-            <li><a href="/transactions">📈 Transactions</a></li>
-            <li><a href="/reports" class="active">📄 Reports</a></li>
+            <li><a href="barcode_receiver.html" data-i18n-key="nav_inventory">📊 Inventory</a></li>
+            <li><a href="/add-product" data-i18n-key="nav_add_product">➕ Add Product</a></li>
+            <li><a href="/item-list" data-i18n-key="nav_item_list">📝 Item List</a></li>
+            <li><a href="/transactions" data-i18n-key="nav_transactions">📈 Transactions</a></li>
+            <li><a href="/reports" class="active" data-i18n-key="nav_reports">📄 Reports</a></li>
         </ul>
     </nav>
 
     <main id="main-content">
         <div class="container">
-            <h1>Reports</h1>
-            <h2>Most Active Items</h2>
-            <p>Items ranked by the total number of transactions (Add, Cut, Adjust).</p>
+            <h1 data-i18n-key="reports_title">Reports</h1>
+            <h2 data-i18n-key="reports_most_active_title">Most Active Items</h2>
+            <p data-i18n-key="reports_most_active_desc">Items ranked by the total number of transactions (Add, Cut, Adjust).</p>
             <table id="reportTable">
                 <thead>
                     <tr>
-                        <th>Rank</th>
-                        <th>Stock Barcode</th>
-                        <th>Barcode</th>
-                        <th>Transaction Count</th>
+                        <th data-i18n-key="reports_table_rank">Rank</th>
+                        <th data-i18n-key="reports_table_name">Stock Barcode</th>
+                        <th data-i18n-key="reports_table_barcode">Barcode</th>
+                        <th data-i18n-key="reports_table_count">Transaction Count</th>
                     </tr>
                 </thead>
                 <tbody id="reportTableBody">
                     <tr>
-                        <td colspan="4" style="text-align: center;">Loading report...</td>
+                        <td colspan="4" style="text-align: center;" data-i18n-key="reports_loading">Loading report...</td>
                     </tr>
                 </tbody>
             </table>

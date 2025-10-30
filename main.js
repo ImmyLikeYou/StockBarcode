@@ -48,25 +48,16 @@ function saveFile(filePath, data) {
 function createWindow() {
     const isPackaged = app.isPackaged;
 
-    // ✅ Correct frontend path for dev and packaged builds
-    // Locate frontend files robustly for both dev and packaged builds.
-    // Common places to check:
-    // - development: __dirname/frontend
-    // - packaged: process.resourcesPath/frontend
-    // - packaged in asar: process.resourcesPath/app.asar/frontend
     const candidates = [];
     if (isPackaged) {
         candidates.push(path.join(process.resourcesPath, 'frontend', 'barcode_receiver.html'));
         candidates.push(path.join(process.resourcesPath, 'app.asar', 'frontend', 'barcode_receiver.html'));
         candidates.push(path.join(process.resourcesPath, 'app', 'frontend', 'barcode_receiver.html'));
     }
-    // Always include the source-folder fallback (useful when running `electron-forge start`)
     candidates.push(path.join(__dirname, 'frontend', 'barcode_receiver.html'));
 
-    // Pick the first candidate that exists
     let entryFile = candidates.find((p) => fs.existsSync(p));
     if (!entryFile) {
-        // For debugging, log where we looked
         console.error('❌ Frontend not found. Looked in:');
         candidates.forEach((p) => console.error('   -', p));
     }
@@ -95,12 +86,9 @@ function createWindow() {
 
 // --- Main logic ---
 async function init() {
-    // Use CommonJS require for 'electron-is-dev' in the Electron main process
-    // (avoids potential issues with dynamic ESM import in this environment)
     try {
         isDev = require('electron-is-dev');
     } catch (err) {
-        // Fallback: if we can't require the helper, infer from app.isPackaged and NODE_ENV
         console.warn('Could not require electron-is-dev, inferring isDev from app.isPackaged and NODE_ENV');
         try {
             isDev = !app.isPackaged || process.env.NODE_ENV === 'development';
@@ -119,11 +107,11 @@ async function init() {
         products: loadFile(PRODUCTS_PATH),
     }));
 
-    // IPC: Add new product (mirrors server /api/product)
     ipcMain.handle('add-product', async(event, productData) => {
         const { productName, principalCode, typeCode } = productData || {};
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
-            throw new Error('Invalid data. Check all fields.');
+            // 1. Throw JSON string
+            throw JSON.stringify({ message: 'error_invalid_data' });
         }
 
         const products = loadFile(PRODUCTS_PATH);
@@ -132,7 +120,8 @@ async function init() {
         const newBarcode = `${principalCode}${typeCode}${newId}`;
 
         if (products[newBarcode]) {
-            throw new Error('Barcode collision. Please try again.');
+            // 2. Throw JSON string
+            throw JSON.stringify({ message: 'error_barcode_collision' });
         }
 
         products[newBarcode] = productName;
@@ -144,9 +133,9 @@ async function init() {
         return { name: productName, barcode: newBarcode };
     });
 
-    // IPC: Delete a product and its inventory
     ipcMain.handle('delete-product', async(event, barcode) => {
-        if (!barcode) throw new Error('Barcode is required');
+        // 3. Throw JSON string
+        if (!barcode) throw JSON.stringify({ message: 'error_barcode_required' });
         const products = loadFile(PRODUCTS_PATH);
         const inventory = loadFile(INVENTORY_PATH);
         let deleted = false;
@@ -165,30 +154,32 @@ async function init() {
             saveFile(INVENTORY_PATH, inventory);
             return { success: true, message: 'Product deleted successfully' };
         }
-        throw new Error('Product not found');
+        // 4. Throw JSON string
+        throw JSON.stringify({ message: 'error_product_not_found' });
     });
 
-    // IPC: Clear transaction log
     ipcMain.handle('clear-log', async() => {
         saveFile(TRANSACTIONS_PATH, []);
         return { success: true };
     });
 
-    // IPC: Get product details
     ipcMain.handle('get-product', async(event, barcode) => {
-        if (!barcode) throw new Error('Barcode is required');
+        // 5. Throw JSON string
+        if (!barcode) throw JSON.stringify({ message: 'error_barcode_required' });
         const products = loadFile(PRODUCTS_PATH);
         const productName = products[barcode];
-        if (!productName) throw new Error('Product not found');
+        // 6. Throw JSON string
+        if (!productName) throw JSON.stringify({ message: 'error_product_not_found' });
         return { barcode, name: productName };
     });
 
-    // IPC: Update product details
     ipcMain.handle('update-product', async(event, args) => {
         const { barcode, productName } = args || {};
-        if (!barcode || !productName) throw new Error('Barcode and productName are required');
+        // 7. Throw JSON string
+        if (!barcode || !productName) throw JSON.stringify({ message: 'error_barcode_name_required' });
         const products = loadFile(PRODUCTS_PATH);
-        if (!products[barcode]) throw new Error('Product not found');
+        // 8. Throw JSON string
+        if (!products[barcode]) throw JSON.stringify({ message: 'error_product_not_found' });
         products[barcode] = productName;
         saveFile(PRODUCTS_PATH, products);
         return { success: true, updatedProduct: { barcode, name: productName } };
@@ -201,14 +192,26 @@ async function init() {
         const products = loadFile(PRODUCTS_PATH);
         const itemName = products[lookupValue] || 'Unknown Item';
 
-        if (!inventory[lookupValue]) throw new Error(`Item code ${lookupValue} not found in inventory.`);
+        if (!inventory[lookupValue]) {
+            // 9. Throw JSON string with context
+            throw JSON.stringify({
+                message: 'error_item_not_found',
+                context: { itemCode: lookupValue }
+            });
+        }
         if (!inventory[lookupValue][size]) inventory[lookupValue][size] = 0;
 
         let currentStock = inventory[lookupValue][size];
         let newStock, logType, transactionAmount = amount;
 
         if (mode === 'cut') {
-            if (currentStock < amount) throw new Error(`Not enough stock. Only ${currentStock} left.`);
+            if (currentStock < amount) {
+                // 10. Throw JSON string with context
+                throw JSON.stringify({
+                    message: 'error_not_enough_stock',
+                    context: { item: `${itemName} (${size})`, stock: currentStock }
+                });
+            }
             newStock = currentStock - amount;
             logType = 'Cut';
         } else if (mode === 'add') {
@@ -234,8 +237,14 @@ async function init() {
         saveFile(INVENTORY_PATH, inventory);
         saveFile(TRANSACTIONS_PATH, transactions);
 
+        let message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
+        if (mode === 'adjust') {
+            message = `OK: ${logType} ${itemName} (${size}) stock to ${newStock}.`;
+        }
+
         return {
             success: true,
+            message: message,
             newTransaction,
             updatedItem: { itemCode: lookupValue, size, newStockLevel: newStock },
         };

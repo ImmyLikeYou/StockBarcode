@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Barcode Inventory System</title>
+    <title data-i18n-key="page_title_inventory">Barcode Inventory System</title>
     <link rel="stylesheet" data-href="/styles/receiver.css">
     <script>
         // Handle stylesheet paths for file:// and http(s)
@@ -22,57 +22,83 @@
 
 <body>
     <nav id="sidebar">
-        <h2>Menu</h2>
+        <div id="lang-switcher">
+            <button id="lang-en">EN</button>
+            <button id="lang-th">TH</button>
+        </div>
+        <h2 data-i18n-key="nav_menu">Menu</h2>
         <ul>
-            <li><a href="barcode_receiver.html" class="active">📊 Inventory</a></li>
-            <li><a href="/add-product">➕ Add Product</a></li>
-            <li><a href="/item-list">📝 Item List</a></li>
-            <li><a href="/transactions">📈 Transactions</a></li>
-            <li><a href="/reports">📄 Reports</a></li>
+            <li><a href="barcode_receiver.html" class="active" data-i18n-key="nav_inventory">📊 Inventory</a></li>
+            <li><a href="/add-product" data-i18n-key="nav_add_product">➕ Add Product</a></li>
+            <li><a href="/item-list" data-i18n-key="nav_item_list">📝 Item List</a></li>
+            <li><a href="/transactions" data-i18n-key="nav_transactions">📈 Transactions</a></li>
+            <li><a href="/reports" data-i18n-key="nav_reports">📄 Reports</a></li>
         </ul>
     </nav>
 
     <main id="main-content">
         <div id="top-container">
             <div id="scanner-container">
-                <button id="clearQuickLogButton">Clear</button>
-                <h1>Barcode Scanner</h1>
-                <p>Select a Mode/Amount/Size and scan your item.</p>
+                <button id="clearQuickLogButton" data-i18n-key="inventory_clear_log_button">Clear</button>
+                <h1 data-i18n-key="inventory_title">Barcode Scanner</h1>
+                <p data-i18n-key="inventory_subtitle">Select a Mode/Amount/Size and scan your item.</p>
                 <form id="scanForm">
-                    <input type="text" id="barcodeInput" placeholder="Waiting for scan..." autofocus>
+                    <input type="text" id="barcodeInput" placeholder="Waiting for scan..." data-i18n-key="inventory_placeholder" data-i18n-placeholder="true" autofocus>
                 </form>
-                <h3>Quick Log:</h3>
+                <h3 data-i18n-key="inventory_quick_log">Quick Log:</h3>
                 <ul id="scanLog"></ul>
             </div>
             <div id="transaction-controls">
-                <h3>Transaction Mode:</h3>
-                <div> <input type="radio" id="modeCut" name="transactionMode" value="cut" checked> <label for="modeCut">Cut Stock</label><br> <input type="radio" id="modeAdd" name="transactionMode" value="add"> <label for="modeAdd">Add Stock</label><br>
-                    <input type="radio" id="modeAdjust" name="transactionMode" value="adjust"> <label for="modeAdjust">Adjust Stock</label> </div>
-                <h3>Size:</h3>
-                <div> <input type="radio" id="sizeS" name="transactionSize" value="S" checked> <label for="sizeS">S</label> <input type="radio" id="sizeM" name="transactionSize" value="M"> <label for="sizeM">M</label> <input type="radio" id="sizeL" name="transactionSize"
-                        value="L"> <label for="sizeL">L</label> <input type="radio" id="sizeXL" name="transactionSize" value="XL"> <label for="sizeXL">XL</label> <br> <input type="radio" id="sizeOne" name="transactionSize" value="ONE_SIZE"> <label for="sizeOne">One Size</label>                    </div>
-                <h3>Transaction Amount:</h3>
+                <h3 data-i18n-key="inventory_mode_title">Transaction Mode:</h3>
+                <div>
+                    <input type="radio" id="modeCut" name="transactionMode" value="cut" checked> <label for="modeCut" data-i18n-key="inventory_mode_cut">Cut Stock</label><br>
+                    <input type="radio" id="modeAdd" name="transactionMode" value="add"> <label for="modeAdd" data-i18n-key="inventory_mode_add">Add Stock</label><br>
+                    <input type="radio" id="modeAdjust" name="transactionMode" value="adjust"> <label for="modeAdjust" data-i18n-key="inventory_mode_adjust">Adjust Stock</label>
+                </div>
+                <h3 data-i18n-key="inventory_size_title">Size:</h3>
+                <div>
+                    <input type="radio" id="sizeS" name="transactionSize" value="S" checked> <label for="sizeS">S</label>
+                    <input type="radio" id="sizeM" name="transactionSize" value="M"> <label for="sizeM">M</label>
+                    <input type="radio" id="sizeL" name="transactionSize" value="L"> <label for="sizeL">L</label>
+                    <input type="radio" id="sizeXL" name="transactionSize" value="XL"> <label for="sizeXL">XL</label> <br>
+                    <input type="radio" id="sizeOne" name="transactionSize" value="ONE_SIZE"> <label for="sizeOne" data-i18n-key="inventory_size_one_size">One Size</label>
+                </div>
+                <h3 data-i18n-key="inventory_amount_title">Transaction Amount:</h3>
                 <div> <input type="number" id="transactionAmountInput" value="1" min="1" step="1"> </div>
             </div>
         </div>
         <div id="bottom-container">
             <div id="inventory-container">
-                <h2>Current Stock</h2>
+                <h2 data-i18n-key="inventory_current_stock">Current Stock</h2>
                 <ul id="inventory-display"></ul>
             </div>
             <div id="sell-log-container">
-                <h2>Transaction Log</h2>
+                <h2 data-i18n-key="inventory_transaction_log">Transaction Log</h2>
                 <div id="log-controls">
-                    <div> <label for="dateFilter">Filter by Date:</label> <input type="date" id="dateFilter"> <button id="filterButton">Filter</button> <button id="showAllButton">Show All</button> </div> <button id="clearLogButton">Clear Log</button> </div>
+                    <div>
+                        <label for="dateFilter" data-i18n-key="inventory_filter_date">Filter by Date:</label>
+                        <input type="date" id="dateFilter">
+                        <button id="filterButton" data-i18n-key="inventory_filter_button">Filter</button>
+                        <button id="showAllButton" data-i18n-key="inventory_show_all_button">Show All</button>
+                    </div>
+                    <button id="clearLogButton" data-i18n-key="inventory_clear_log_button_main">Clear Log</button>
+                </div>
                 <ul id="sellLog"></ul>
             </div>
         </div>
     </main>
     <div id="deleteConfirmationModal" class="modal-overlay">
         <div class="modal-content">
-            <h3>Confirm Deletion</h3>
-            <p>Are you sure you want to permanently delete <strong id="itemToDeleteName">this item</strong>?</p>
-            <div class="modal-buttons"> <button id="cancelDeleteBtn">Cancel</button> <button id="confirmDeleteBtn">Confirm Delete</button> </div>
+            <h3 data-i18n-key="modal_delete_title">Confirm Deletion</h3>
+            <p>
+                <span data-i18n-key="modal_delete_text_pre">Are you sure you want to permanently delete</span>
+                <strong id="itemToDeleteName">this item</strong>
+                <span data-i18n-key="modal_delete_text_post">?</span>
+            </p>
+            <div class="modal-buttons">
+                <button id="cancelDeleteBtn" data-i18n-key="modal_delete_cancel">Cancel</button>
+                <button id="confirmDeleteBtn" data-i18n-key="modal_delete_confirm">Confirm Delete</button>
+            </div>
         </div>
     </div>
     <div id="toastNotification" class="toast"> <span id="toastMessage"></span> </div>

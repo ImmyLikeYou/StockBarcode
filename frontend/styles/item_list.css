@@ -1,36 +1,76 @@
+/* Language Switcher Styles */
+
+#lang-switcher {
+    padding-bottom: 15px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #495057;
+    display: flex;
+    gap: 10px;
+}
+
+#lang-switcher button {
+    width: 100%;
+    padding: 8px;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+}
+
+#lang-switcher button:hover {
+    background-color: #5a6268;
+}
+
+#lang-switcher button.active {
+    background-color: #007bff;
+    font-weight: bold;
+}
+
+
+/* --- End Language Switcher --- */
+
 body {
     font-family: sans-serif;
     background-color: #f4f4f4;
     margin: 0;
     padding: 0;
-    display: flex; /* Use flexbox for layout */
+    display: flex;
+    /* Use flexbox for layout */
 }
 
+
 /* Sidebar Styles (Same as other pages) */
+
 #sidebar {
     width: 200px;
     background-color: #343a40;
     color: white;
     padding: 20px;
     height: 100vh;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
     position: fixed;
     left: 0;
     top: 0;
 }
+
 #sidebar h2 {
     margin-top: 0;
     border-bottom: 1px solid #495057;
     padding-bottom: 10px;
 }
+
 #sidebar ul {
     list-style-type: none;
     padding: 0;
     margin: 0;
 }
+
 #sidebar ul li {
     margin-bottom: 10px;
 }
+
 #sidebar ul li a {
     color: #adb5bd;
     text-decoration: none;
@@ -39,56 +79,80 @@ body {
     padding: 8px;
     border-radius: 4px;
 }
+
 #sidebar ul li a:hover,
 #sidebar ul li a.active {
     background-color: #495057;
     color: white;
 }
 
+
 /* Main Content Area */
+
 #main-content {
     flex-grow: 1;
     padding: 20px;
-    margin-left: 240px; /* Push content past the sidebar */
+    margin-left: 240px;
+    /* Push content past the sidebar */
 }
 
+
 /* Table Styles */
+
 #item-list-container {
     background-color: #fff;
     border-radius: 8px;
     padding: 20px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
+
 #itemTable {
     width: 100%;
-    border-collapse: collapse; /* Removes space between cells */
+    border-collapse: collapse;
+    /* Removes space between cells */
     margin-top: 20px;
 }
-#itemTable th, #itemTable td {
+
+#itemTable th,
+#itemTable td {
     border: 1px solid #ddd;
     padding: 12px;
     text-align: left;
-    vertical-align: middle; /* Align content vertically */
-}
-#itemTable th {
-    background-color: #f8f9fa; /* Light grey header */
-    font-weight: bold;
-}
-#itemTable tr:nth-child(even) {
-    background-color: #f2f2f2; /* Zebra striping */
-}
-#itemTable tr:hover {
-    background-color: #e9ecef; /* Highlight on hover */
+    vertical-align: middle;
+    /* Align content vertically */
 }
 
+#itemTable th {
+    background-color: #f8f9fa;
+    /* Light grey header */
+    font-weight: bold;
+}
+
+#itemTable tr:nth-child(even) {
+    background-color: #f2f2f2;
+    /* Zebra striping */
+}
+
+#itemTable tr:hover {
+    background-color: #e9ecef;
+    /* Highlight on hover */
+}
+
+
 /* NEW: Styles for download button */
+
 .barcode-cell {
-    font-family: monospace; /* Make barcode text stand out */
+    font-family: monospace;
+    /* Make barcode text stand out */
 }
+
 .download-cell {
-    text-align: center; /* Center the button */
-    width: 100px; /* Give the column a fixed width */
+    text-align: center;
+    /* Center the button */
+    width: 100px;
+    /* Give the column a fixed width */
 }
+
 .download-btn {
     background-color: #007bff;
     color: white;
@@ -98,48 +162,71 @@ body {
     border-radius: 4px;
     cursor: pointer;
 }
+
 .download-btn:hover {
     background-color: #0056b3;
 }
+
+
 /* END NEW */
 
+
 /* Hidden canvas for PNG generation */
+
 #tempCanvas {
     display: none;
 }
+
+
 /* --- Styles for Edit Button --- */
+
 .edit-cell {
     text-align: center;
-    width: 80px; 
+    width: 80px;
 }
+
 .edit-btn {
-    background-color: #ffc107; /* Yellow */
-    color: #212529; /* Dark text */
+    background-color: #ffc107;
+    /* Yellow */
+    color: #212529;
+    /* Dark text */
     padding: 6px 10px;
     text-decoration: none;
     border-radius: 4px;
     font-size: 0.9em;
-    display: inline-block; /* Allow padding */
+    display: inline-block;
+    /* Allow padding */
 }
+
 .edit-btn:hover {
     background-color: #e0a800;
 }
+
+
 /* --- End Edit Button Styles --- */
+
+
 /* --- Styles for History Button --- */
+
 .history-cell {
     text-align: center;
-    width: 100px; 
+    width: 100px;
 }
+
 .history-btn {
-    background-color: #6c757d; /* Grey */
+    background-color: #6c757d;
+    /* Grey */
     color: white;
     padding: 6px 10px;
     text-decoration: none;
     border-radius: 4px;
     font-size: 0.9em;
-    display: inline-block; 
+    display: inline-block;
 }
+
 .history-btn:hover {
     background-color: #5a6268;
 }
+
+
 /* --- End History Button Styles --- */

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-<title>Transaction Log</title>
+<title data-i18n-key="page_title_transactions">Transaction Log</title>
 <link rel="stylesheet" data-href="/styles/transactions.css">
 <script>
     (function() {
@@ -44,48 +44,60 @@
     })();
 </script>
 
-<!-- route mapping / data-href handled at end of body -->
-
 <body>
     <nav id="sidebar">
-        <h2>Menu</h2>
+        <div id="lang-switcher">
+            <button id="lang-en">EN</button>
+            <button id="lang-th">TH</button>
+        </div>
+        <h2 data-i18n-key="nav_menu">Menu</h2>
         <ul>
-            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
-            <li><a href="/add-product">➕ Add Product</a></li>
-            <li><a href="/item-list">📝 Item List</a></li>
-            <li><a href="/transactions" class="active">📈 Transactions</a></li>
-            <li><a href="/reports">📄 Reports</a></li>
+            <li><a href="barcode_receiver.html" data-i18n-key="nav_inventory">📊 Inventory</a></li>
+            <li><a href="/add-product" data-i18n-key="nav_add_product">➕ Add Product</a></li>
+            <li><a href="/item-list" data-i18n-key="nav_item_list">📝 Item List</a></li>
+            <li><a href="/transactions" class="active" data-i18n-key="nav_transactions">📈 Transactions</a></li>
+            <li><a href="/reports" data-i18n-key="nav_reports">📄 Reports</a></li>
         </ul>
     </nav>
 
     <main id="main-content">
         <div class="container">
-            <h1>Transaction History</h1>
+            <h1 data-i18n-key="transactions_title">Transaction History</h1>
             <div id="controls">
-                <div id="search-area"> <label for="searchCategory">Search By:</label> <select id="searchCategory"> <option value="name">Item Name</option> <option value="date">Date</option> <option value="type">Type (Add/Cut)</option> </select> <input type="text" id="searchNameInput"
-                        placeholder="Enter item name..."> <input type="date" id="searchDateInput" style="display: none;"> <input type="text" id="searchTypeInput" placeholder="Enter 'Add' or 'Cut'" style="display: none;">
+                <div id="search-area">
+                    <label for="searchCategory" data-i18n-key="transactions_search_by">Search By:</label>
+                    <select id="searchCategory"> 
+                        <option value="name" data-i18n-key="transactions_search_name">Item Name</option> 
+                        <option value="date" data-i18n-key="transactions_search_date">Date</option> 
+                        <option value="type" data-i18n-key="transactions_search_type">Type (Add/Cut)</option> 
+                    </select>
+                    <input type="text" id="searchNameInput" placeholder="Enter item name..." data-i18n-key="transactions_placeholder_name" data-i18n-placeholder="true">
+                    <input type="date" id="searchDateInput" style="display: none;">
+                    <input type="text" id="searchTypeInput" placeholder="Enter 'Add' or 'Cut'" data-i18n-key="transactions_placeholder_type" data-i18n-placeholder="true" style="display: none;">
                     <div id="suggestions"></div>
-                </div> <button id="exportButton">Export to CSV</button> </div>
+                </div>
+                <button id="exportButton" data-i18n-key="transactions_export_csv">Export to CSV</button>
+            </div>
             <table id="transactionTable">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Item Name (Size)</th>
-                        <th>Type</th>
-                        <th>Amount</th>
-                        <th>New Stock</th>
+                        <th data-i18n-key="transactions_table_date">Date</th>
+                        <th data-i18n-key="transactions_table_time">Time</th>
+                        <th data-i18n-key="transactions_table_item">Item Name (Size)</th>
+                        <th data-i18n-key="transactions_table_type">Type</th>
+                        <th data-i18n-key="transactions_table_amount">Amount</th>
+                        <th data-i18n-key="transactions_table_new_stock">New Stock</th>
                     </tr>
                 </thead>
                 <tbody id="transactionTableBody">
                     <tr>
-                        <td colspan="6" style="text-align: center;">Loading...</td>
+                        <td colspan="6" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
         <div class="container">
-            <h2>Transaction Graph</h2>
+            <h2 data-i18n-key="transactions_graph_title">Transaction Graph</h2>
             <div id="graphContainer"> <canvas id="transactionChart"></canvas> </div>
         </div>
     </main>

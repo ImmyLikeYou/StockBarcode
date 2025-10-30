@@ -1,4 +1,6 @@
 import { loadData, getRouteHref } from './_api.js';
+// 1. Import i18n functions
+import { initializeI18n, setLanguage, t } from './i18n.js';
 
 const itemTableBody = document.getElementById('itemTableBody');
 const tempCanvas = document.getElementById('tempCanvas');
@@ -28,7 +30,8 @@ function saveBarcodeAsPng(barcodeValue) { /* ... same PNG generation logic as be
         img.src = 'data:image/svg+xml;base64,' + window.btoa(svgString);
     } catch (e) {
         console.error("Error generating barcode PNG:", e);
-        alert("Could not generate barcode PNG: " + e.message);
+        // 2. Use translation key for alert
+        alert(t('error_generate_png', { message: e.message }));
     }
 }
 
@@ -52,7 +55,8 @@ async function loadProductData() {
             const downloadCell = document.createElement('td');
             downloadCell.className = 'download-cell';
             const downloadBtn = document.createElement('button');
-            downloadBtn.textContent = 'PNG';
+            // 3. Use translation key for button text
+            downloadBtn.textContent = t('list_table_download_png');
             downloadBtn.className = 'download-btn';
             downloadBtn.dataset.barcode = barcode;
             downloadBtn.addEventListener('click', (event) => { saveBarcodeAsPng(event.target.dataset.barcode); });
@@ -61,14 +65,16 @@ async function loadProductData() {
             editCell.className = 'edit-cell';
             const editLink = document.createElement('a');
             editLink.setAttribute('href', getRouteHref(`/edit-product/${barcode}`));
-            editLink.textContent = 'Edit';
+            // 4. Use translation key for button text
+            editLink.textContent = t('list_table_edit');
             editLink.className = 'edit-btn';
             editCell.appendChild(editLink);
             const historyCell = document.createElement('td');
             historyCell.className = 'history-cell';
             const historyLink = document.createElement('a');
             historyLink.setAttribute('href', getRouteHref(`/item-history/${barcode}`));
-            historyLink.textContent = 'History';
+            // 5. Use translation key for button text
+            historyLink.textContent = t('list_table_history');
             historyLink.className = 'history-btn';
             historyCell.appendChild(historyLink);
 
@@ -82,7 +88,27 @@ async function loadProductData() {
 
     } catch (err) {
         console.error('Error loading product data:', err);
-        itemTableBody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">Error loading products.</td></tr>`;
+        // 6. Use translation key for error
+        itemTableBody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">${t('error_loading_products')}</td></tr>`;
     }
 }
-loadProductData();
+
+// 7. Add language switcher listeners
+// Add language switcher listeners
+const langEnButton = document.getElementById('lang-en');
+if (langEnButton) {
+    langEnButton.addEventListener('click', () => setLanguage('en'));
+}
+
+const langThButton = document.getElementById('lang-th');
+if (langThButton) {
+    langThButton.addEventListener('click', () => setLanguage('th'));
+}
+
+// 8. Create new init function
+async function initializeApp() {
+    await initializeI18n();
+    loadProductData();
+}
+
+initializeApp();

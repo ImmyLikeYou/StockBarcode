@@ -1,4 +1,6 @@
 import { addProduct } from './_api.js';
+// 1. Import i18n functions
+import { initializeI18n, setLanguage, t } from './i18n.js';
 
 const addForm = document.getElementById('addProductForm');
 const productNameInput = document.getElementById('productName');
@@ -18,7 +20,7 @@ addForm.addEventListener('submit', async function(event) {
     errorMessage.textContent = '';
 
     const productData = {
-        productName: productNameInput.value, // Use renamed variable
+        productName: productNameInput.value,
         principalCode: principalCode.value,
         typeCode: typeCode.value
     };
@@ -45,7 +47,9 @@ addForm.addEventListener('submit', async function(event) {
 
     } catch (err) {
         console.error('Error creating product:', err);
-        errorMessage.textContent = 'Error: ' + err.message;
+        // Use the new error parser
+        const { key, context } = parseError(err);
+        errorMessage.textContent = t(key, context);
         resultDiv.style.display = 'block'; // Show error in result div
     }
 });
@@ -75,7 +79,22 @@ saveButton.addEventListener('click', function() {
 
     } catch (e) {
         console.error("Error saving barcode PNG:", e);
-        errorMessage.textContent = "Could not save PNG. " + e.message;
+        // 3. Use translation key for error
+        errorMessage.textContent = t('error_save_png', { message: e.message });
         resultDiv.style.display = 'block'; // Show error
     }
 });
+
+// 4. Add language switcher listeners
+// Add language switcher listeners
+const langEnButton = document.getElementById('lang-en');
+if (langEnButton) {
+    langEnButton.addEventListener('click', () => setLanguage('en'));
+}
+
+const langThButton = document.getElementById('lang-th');
+if (langThButton) {
+    langThButton.addEventListener('click', () => setLanguage('th'));
+}
+// 5. Initialize translations
+initializeI18n();

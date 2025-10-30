@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Item History</title>
+    <title data-i18n-key="page_title_item_history">Item History</title>
     <link rel="stylesheet" data-href="/styles/item_history.css">
     <script>
         (function() {
@@ -18,37 +18,45 @@
 
 <body>
     <nav id="sidebar">
-        <h2>Menu</h2>
+        <div id="lang-switcher">
+            <button id="lang-en">EN</button>
+            <button id="lang-th">TH</button>
+        </div>
+        <h2 data-i18n-key="nav_menu">Menu</h2>
         <ul>
-            <li><a href="barcode_receiver.html">📊 Inventory</a></li>
-            <li><a href="/add-product">➕ Add Product</a></li>
-            <li><a href="/item-list" class="active">📝 Item List</a></li>
-            <li><a href="/transactions">📈 Transactions</a></li>
-            <li><a href="/reports">📄 Reports</a></li>
+            <li><a href="barcode_receiver.html" data-i18n-key="nav_inventory">📊 Inventory</a></li>
+            <li><a href="/add-product" data-i18n-key="nav_add_product">➕ Add Product</a></li>
+            <li><a href="/item-list" class="active" data-i18n-key="nav_item_list">📝 Item List</a></li>
+            <li><a href="/transactions" data-i18n-key="nav_transactions">📈 Transactions</a></li>
+            <li><a href="/reports" data-i18n-key="nav_reports">📄 Reports</a></li>
         </ul>
     </nav>
 
     <main id="main-content">
         <div class="container">
-            <a data-href="/item-list" class="back-link">&larr; Back to Item List</a>
-            <h1 id="historyTitle">Transaction History</h1>
-            <p><strong id="historyBarcode">Barcode: </strong></p>
+            <a data-href="/item-list" class="back-link" data-i18n-key="history_back_link">&larr; Back to Item List</a>
+            <h1 id="historyTitle" data-i18n-key="history_title">Transaction History</h1>
+            <p><strong data-i18n-key="history_barcode_label">Barcode: </strong><span id="historyBarcode"></span></p>
 
-            <div class="filter-controls"> <label for="historyDateFilter">Filter by Date:</label> <input type="date" id="historyDateFilter"> <button id="clearHistoryFilter">Show All</button> </div>
+            <div class="filter-controls">
+                <label for="historyDateFilter" data-i18n-key="history_filter_date">Filter by Date:</label>
+                <input type="date" id="historyDateFilter">
+                <button id="clearHistoryFilter" data-i18n-key="history_show_all_button">Show All</button>
+            </div>
             <table id="historyTable">
                 <thead>
                     <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Size</th>
-                        <th>Type</th>
-                        <th>Amount Changed</th>
-                        <th>New Stock (Size)</th>
+                        <th data-i18n-key="history_table_date">Date</th>
+                        <th data-i18n-key="history_table_time">Time</th>
+                        <th data-i18n-key="history_table_size">Size</th>
+                        <th data-i18n-key="history_table_type">Type</th>
+                        <th data-i18n-key="history_table_amount">Amount Changed</th>
+                        <th data-i18n-key="history_table_new_stock">New Stock (Size)</th>
                     </tr>
                 </thead>
                 <tbody id="historyTableBody">
                     <tr>
-                        <td colspan="6" style="text-align: center;">Loading history...</td>
+                        <td colspan="6" style="text-align: center;" data-i18n-key="history_loading">Loading history...</td>
                     </tr>
                 </tbody>
             </table>
@@ -74,12 +82,14 @@
             return null;
         }
         const productBarcode = getBarcodeFromUrl();
-        const historyTitle = document.getElementById('historyTitle');
-        const historyBarcode = document.getElementById('historyBarcode');
+        // This script runs before i18n, so we just set the barcode number
+        // The i18n.js will handle setting the "Barcode:" label
+        const historyBarcodeEl = document.getElementById('historyBarcode');
         if (productBarcode) {
-            historyBarcode.textContent = `Barcode: ${productBarcode}`;
+            historyBarcodeEl.textContent = productBarcode;
         } else {
-            historyTitle.textContent = 'Transaction History (Error: No Barcode)';
+            // Error case, i18n will handle the title translation
+            document.getElementById('historyTitle').setAttribute('data-i18n-key', 'history_error_no_barcode');
         }
     </script>
     <script type="module" data-src="/scripts/item_history.js"></script>

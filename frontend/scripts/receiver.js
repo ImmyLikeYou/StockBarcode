@@ -1,5 +1,7 @@
 import { loadData, processTransaction, deleteProduct, clearLog } from './_api.js';
 import { navigateTo } from './route_handler.js';
+// 1. Import i18n functions
+import { initializeI18n, setLanguage, t } from './i18n.js';
 
 // --- 1. CONFIGURATION ---
 const LOW_STOCK_THRESHOLD = 10;
@@ -53,10 +55,12 @@ async function executeDelete() {
         delete inventoryStock[barcodeToDelete];
         delete itemNames[barcodeToDelete];
         updateInventoryDisplay();
-        showToast('Product deleted successfully');
+        // 2. Use translation key for toast
+        showToast(t('toast_product_deleted'));
     } catch (err) {
         console.error('Error deleting product:', err);
-        alert('Could not delete product: ' + err.message);
+        // 3. Use translation key for alert
+        alert(t('error_delete_product', { message: err.message }));
     } finally {
         deleteModal.style.display = 'none';
         barcodeToDelete = null;
@@ -130,19 +134,22 @@ async function loadAllData() {
         renderSellLog();
     } catch (err) {
         console.error('Error loading data:', err);
-        alert('Could not load data. Check logs.');
+        // 4. Use translation key for alert
+        alert(t('error_load_data'));
     }
 }
 
 async function clearTransactionLog() {
-    if (confirm('Are you sure...?')) {
+    // 5. Use translation key for confirm
+    if (confirm(t('confirm_clear_log'))) {
         try {
             await clearLog();
             sellLogData = [];
             renderSellLog();
         } catch (err) {
             console.error('Error clearing log:', err);
-            alert('Could not clear log.');
+            // 6. Use translation key for alert
+            alert(t('error_clear_log'));
         }
     }
 }
@@ -162,11 +169,12 @@ async function processScan() {
     const amountOrNewStock = parseInt(transactionAmountInput.value, 10);
     let errorOccurred = false;
 
+    // 7. Use translation keys for toasts
     if ((transactionMode === 'add' || transactionMode === 'cut') && (!amountOrNewStock || amountOrNewStock < 1)) {
-        showToast('Please enter a valid amount > 0 for Add/Cut.');
+        showToast(t('error_invalid_amount_add_cut'));
         errorOccurred = true;
     } else if (transactionMode === 'adjust' && (isNaN(amountOrNewStock) || amountOrNewStock < 0)) {
-        showToast('Please enter a valid stock level >= 0 for Adjust.');
+        showToast(t('error_invalid_amount_add_cut')); // Same error key can be reused
         errorOccurred = true;
     } else if (!itemNames.hasOwnProperty(lookupValue)) {
         const newLogItem = document.createElement('li');
@@ -188,17 +196,25 @@ async function processScan() {
             updateInventoryDisplay();
             renderSellLog();
             const newLogItem = document.createElement('li');
-            newLogItem.textContent = result.message;
+            newLogItem.textContent = result.message; // Backend message is now just "OK: ..."
             if (transactionMode === 'add') newLogItem.className = 'match-add';
             else if (transactionMode === 'cut') newLogItem.className = 'match-cut';
             else newLogItem.className = 'match-adjust';
             scanLog.append(newLogItem);
             scanLog.scrollTop = scanLog.scrollHeight;
         } catch (err) {
+            // 8. Handle translated errors from backend
             console.error('Error processing transaction:', err);
-            if (err.message.includes('Not enough stock')) { showToast(err.message); } else {
+
+            // Use the new error parser
+            const { key, context } = parseError(err);
+            const translatedError = t(key, context);
+
+            if (key === 'error_not_enough_stock') {
+                showToast(translatedError); // Show in toast
+            } else {
                 const newLogItem = document.createElement('li');
-                newLogItem.textContent = 'Error: ' + err.message;
+                newLogItem.textContent = translatedError; // Show in log
                 newLogItem.className = 'error';
                 scanLog.append(newLogItem);
                 scanLog.scrollTop = scanLog.scrollHeight;
@@ -243,5 +259,27 @@ window.addEventListener('click', (event) => {
     }
 });
 
+// 9. Add language switcher listeners
+// Add language switcher listeners
+const langEnButton = document.getElementById('lang-en');
+if (langEnButton) {
+    langEnButton.addEventListener('click', () => setLanguage('en'));
+}
+
+const langThButton = document.getElementById('lang-th');
+if (langThButton) {
+    langThButton.addEventListener('click', () => setLanguage('th'));
+}
+
+
 // --- 6. INITIALIZE ---
-loadAllData();
+// 10. Create new init function
+async function initializeApp() {
+    // Wait for translations to load
+    await initializeI18n();
+    // Then load the rest of the app data
+    loadAllData();
+}
+
+// Call the new initializer
+initializeApp();

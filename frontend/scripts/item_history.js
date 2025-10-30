@@ -1,4 +1,6 @@
 import { loadData, getBarcodeFromUrl } from './_api.js';
+// 1. Import i18n functions
+import { initializeI18n, setLanguage, t } from './i18n.js';
 
 const historyTableBody = document.getElementById('historyTableBody');
 const historyDateFilter = document.getElementById('historyDateFilter');
@@ -10,7 +12,8 @@ let currentHistoryFilterDate = null;
 
 async function loadItemHistory() {
     if (!productBarcode) {
-        historyTableBody.innerHTML = '<tr><td colspan="6" style="color: red; text-align: center;">Error: Product barcode not specified.</td></tr>';
+        // 2. Use translation key for error
+        historyTableBody.innerHTML = `<tr><td colspan="6" style="color: red; text-align: center;">${t('error_no_barcode_specified')}</td></tr>`;
         return;
     }
     try {
@@ -21,7 +24,8 @@ async function loadItemHistory() {
         renderHistoryTable();
     } catch (err) {
         console.error('Error loading item history:', err);
-        historyTableBody.innerHTML = '<tr><td colspan="6" style="color: red; text-align: center;">Error loading history.</td></tr>';
+        // 3. Use translation key for error
+        historyTableBody.innerHTML = `<tr><td colspan="6" style="color: red; text-align: center;">${t('error_loading_history')}</td></tr>`;
     }
 }
 
@@ -29,7 +33,8 @@ function renderHistoryTable() {
     historyTableBody.innerHTML = '';
     const historyToDisplay = fullItemHistory.filter(entry => { if (!currentHistoryFilterDate) return true; const entryDate = new Date(entry.timestamp); return entryDate.toISOString().split('T')[0] === currentHistoryFilterDate; });
     if (historyToDisplay.length === 0) {
-        const message = currentHistoryFilterDate ? 'No transactions found for this date.' : 'No transaction history found for this item.';
+        // 4. Use translation keys for empty message
+        const message = currentHistoryFilterDate ? t('history_no_transactions_date') : t('history_no_transactions_item');
         historyTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">${message}</td></tr>`;
         return;
     }
@@ -60,4 +65,22 @@ clearHistoryFilterBtn.addEventListener('click', () => {
     renderHistoryTable();
 });
 
-loadItemHistory();
+// 5. Add language switcher listeners
+// Add language switcher listeners
+const langEnButton = document.getElementById('lang-en');
+if (langEnButton) {
+    langEnButton.addEventListener('click', () => setLanguage('en'));
+}
+
+const langThButton = document.getElementById('lang-th');
+if (langThButton) {
+    langThButton.addEventListener('click', () => setLanguage('th'));
+}
+
+// 6. Create new init function
+async function initializeApp() {
+    await initializeI18n();
+    loadItemHistory();
+}
+
+initializeApp();

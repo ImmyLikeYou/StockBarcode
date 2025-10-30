@@ -1,4 +1,6 @@
 import { loadData } from './_api.js';
+// 1. Import i18n functions
+import { initializeI18n, setLanguage, t } from './i18n.js';
 
 const reportTableBody = document.getElementById('reportTableBody');
 
@@ -38,7 +40,8 @@ async function generateMostActiveReport() {
 
     } catch (err) {
         console.error('Error generating report:', err);
-        reportTableBody.innerHTML = '<tr><td colspan="4" style="color: red; text-align: center;">Error generating report.</td></tr>';
+        // 2. Use translation key for error
+        reportTableBody.innerHTML = `<tr><td colspan="4" style="color: red; text-align: center;">${t('error_generating_report')}</td></tr>`;
     }
 }
 
@@ -50,7 +53,8 @@ function renderReportTable(reportData) {
     reportTableBody.innerHTML = ''; // Clear loading message
 
     if (reportData.length === 0) {
-        reportTableBody.innerHTML = '<tr><td colspan="4" style="text-align: center;">No transaction data available to generate report.</td></tr>';
+        // 3. Use translation key for empty message
+        reportTableBody.innerHTML = `<tr><td colspan="4" style="text-align: center;">${t('reports_no_data')}</td></tr>`;
         return;
     }
 
@@ -68,5 +72,23 @@ function renderReportTable(reportData) {
     });
 }
 
+// 4. Add language switcher listeners
+// Add language switcher listeners
+const langEnButton = document.getElementById('lang-en');
+if (langEnButton) {
+    langEnButton.addEventListener('click', () => setLanguage('en'));
+}
+
+const langThButton = document.getElementById('lang-th');
+if (langThButton) {
+    langThButton.addEventListener('click', () => setLanguage('th'));
+}
+
 // --- Initial Load ---
-generateMostActiveReport();
+// 5. Create new init function
+async function initializeApp() {
+    await initializeI18n();
+    generateMostActiveReport();
+}
+
+initializeApp();
