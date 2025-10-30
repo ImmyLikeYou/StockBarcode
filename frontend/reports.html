@@ -35,6 +35,26 @@
 
     <main id="main-content">
         <div class="container">
+            <h2 data-i18n-key="reports_inventory_summary_title">Inventory Value Summary</h2>
+            <p data-i18n-key="reports_inventory_summary_desc">Current stock levels, cost per item, and total value of all items in inventory.</p>
+            <table id="inventorySummaryTable">
+                <thead>
+                    <tr>
+                        <th data-i18n-key="reports_table_item_size">Item (Size)</th>
+                        <th data-i18n-key="reports_table_current_stock">Current Stock</th>
+                        <th data-i18n-key="reports_table_cost_ea">Cost (ea.)</th>
+                        <th data-i18n-key="reports_table_total_value">Total Value</th>
+                    </tr>
+                </thead>
+                <tbody id="inventorySummaryTableBody">
+                    <tr>
+                        <td colspan="4" style="text-align: center;" data-i18n-key="reports_loading">Loading report...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="container">
             <h1 data-i18n-key="reports_title">Reports</h1>
             <h2 data-i18n-key="reports_most_active_title">Most Active Items</h2>
             <p data-i18n-key="reports_most_active_desc">Items ranked by the total number of transactions (Add, Cut, Adjust).</p>
@@ -76,6 +96,7 @@
 
             // when under file://, rewrite server-style links to local filenames
             if (location.protocol !== 'file:') return;
+            // --- UPDATED ROUTEMAP ---
             const routeMap = {
                 '/': 'barcode_receiver.html',
                 '/add-product': 'add_product.html',

@@ -1,6 +1,5 @@
 import { loadData, processTransaction, deleteProduct, clearLog } from './_api.js';
 import { navigateTo } from './route_handler.js';
-// --- THIS IS THE FIX: Added getCurrentLanguage ---
 import { initializeI18n, setLanguage, t, parseError, getCurrentLanguage } from './i18n.js';
 
 // --- 1. CONFIGURATION ---
@@ -30,20 +29,12 @@ const toastMessageSpan = document.getElementById('toastMessage');
 let toastTimeout = null;
 let scanDebounceTimer = null;
 
-const costInputContainer = document.getElementById('costInputContainer');
-const transactionCostInput = document.getElementById('transactionCostInput');
-const transactionModeRadios = document.querySelectorAll('input[name="transactionMode"]');
+// --- REMOVED: Cost input elements ---
+// --- REMOVED: transactionModeRadios (no longer needed for visibility) ---
 
 // --- 2. DISPLAY FUNCTIONS ---
 
-function updateCostInputVisibility() {
-    const selectedMode = document.querySelector('input[name="transactionMode"]:checked').value;
-    if (selectedMode === 'add' || selectedMode === 'adjust') {
-        costInputContainer.style.display = 'block';
-    } else { // 'cut'
-        costInputContainer.style.display = 'none';
-    }
-}
+// --- REMOVED: updateCostInputVisibility function ---
 
 function showToast(message) {
     if (toastTimeout) { clearTimeout(toastTimeout); }
@@ -82,8 +73,10 @@ async function executeDelete() {
 
 function updateInventoryDisplay() {
     inventoryDisplay.innerHTML = '';
-    // --- This line (85) will now work ---
     const currentLang = getCurrentLanguage();
+
+    // --- NEW: Define the order of sizes ---
+    const sizeOrder = ["F", "M", "L", "XL", "2L", "3L", "4L", "5L", "6L"];
 
     for (const itemCode in inventoryStock) {
         const itemName = itemNames[itemCode] ? itemNames[itemCode].name : "Unknown Item";
@@ -96,14 +89,28 @@ function updateInventoryDisplay() {
         deleteBtn.addEventListener('click', handleDeleteProduct);
         newItemDisplay.appendChild(deleteBtn);
         newItemDisplay.append(`${itemName}:`);
-        if (Object.keys(stockLevels).length === 0) {
+
+        const stockEntries = Object.keys(stockLevels);
+
+        if (stockEntries.length === 0) {
             const noSizeSpan = document.createElement('span');
             noSizeSpan.className = 'no-sizes';
             noSizeSpan.textContent = '(No sizes added yet)';
             newItemDisplay.appendChild(noSizeSpan);
         } else {
             const sizeList = document.createElement('ul');
-            for (const size in stockLevels) {
+
+            // --- NEW: Sort the sizes based on our defined order ---
+            const sortedSizes = stockEntries.sort((a, b) => {
+                const indexA = sizeOrder.indexOf(a);
+                const indexB = sizeOrder.indexOf(b);
+                // Put unknown sizes at the end
+                if (indexA === -1) return 1;
+                if (indexB === -1) return -1;
+                return indexA - indexB;
+            });
+
+            for (const size of sortedSizes) {
                 const stockLevel = stockLevels[size].stock;
                 const costLevel = stockLevels[size].cost || 0;
                 const costString = costLevel.toFixed(2);
@@ -189,7 +196,7 @@ async function processScan() {
     const transactionMode = document.querySelector('input[name="transactionMode"]:checked').value;
     const transactionSize = document.querySelector('input[name="transactionSize"]:checked').value;
     const amountOrNewStock = parseInt(transactionAmountInput.value, 10);
-    const cost = parseFloat(transactionCostInput.value) || 0;
+    // --- REMOVED: Cost variable ---
 
     let errorOccurred = false;
 
@@ -199,9 +206,7 @@ async function processScan() {
     } else if (transactionMode === 'adjust' && (isNaN(amountOrNewStock) || amountOrNewStock < 0)) {
         showToast(t('error_invalid_amount_add_cut'));
         errorOccurred = true;
-    } else if ((transactionMode === 'add' || transactionMode === 'adjust') && (isNaN(cost) || cost < 0)) {
-        showToast(t('error_invalid_cost'));
-        errorOccurred = true;
+        // --- REMOVED: Cost validation ---
     } else if (!itemNames.hasOwnProperty(lookupValue)) {
         const newLogItem = document.createElement('li');
         newLogItem.textContent = `Unknown Item: ${scannedValue}`;
@@ -213,12 +218,12 @@ async function processScan() {
 
     if (!errorOccurred) {
         try {
+            // --- MODIFIED: Payload no longer includes cost ---
             const payload = {
                 lookupValue,
                 amount: amountOrNewStock,
                 mode: transactionMode,
-                size: transactionSize,
-                cost: cost
+                size: transactionSize
             };
 
             const result = await processTransaction(payload);
@@ -297,9 +302,7 @@ window.addEventListener('click', (event) => {
     }
 });
 
-transactionModeRadios.forEach(radio => {
-    radio.addEventListener('change', updateCostInputVisibility);
-});
+// --- REMOVED: Listeners for transaction mode change ---
 
 // Add language switcher listeners
 const langEnButton = document.getElementById('lang-en');
@@ -316,7 +319,7 @@ if (langThButton) {
 // --- 6. INITIALIZE ---
 async function initializeApp() {
     await initializeI18n();
-    updateCostInputVisibility();
+    // --- REMOVED: updateCostInputVisibility() ---
     loadAllData();
 }
 

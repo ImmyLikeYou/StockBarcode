@@ -265,3 +265,20 @@ body {
 
 
 /* --- End of Updated Search Styles --- */
+
+
+/* --- NEW: Right-align number columns --- */
+
+#transactionTable th:nth-child(5),
+#transactionTable td:nth-child(5),
+#transactionTable th:nth-child(6),
+#transactionTable td:nth-child(6),
+#transactionTable th:nth-child(7),
+#transactionTable td:nth-child(7),
+#transactionTable th:nth-child(8),
+#transactionTable td:nth-child(8) {
+    text-align: right;
+}
+
+
+/* --- END NEW --- */

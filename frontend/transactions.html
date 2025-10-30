@@ -25,7 +25,8 @@
             '/add-product': 'add_product.html',
             '/item-list': 'item_list.html',
             '/transactions': 'transactions.html',
-            '/reports': 'reports.html'
+            '/reports': 'reports.html',
+            '/categories': 'categories.html' // Make sure this is here
         };
         document.querySelectorAll('a[href^="/"]').forEach(a => {
             const href = a.getAttribute('href');
@@ -87,12 +88,14 @@
                         <th data-i18n-key="transactions_table_item">Item Name (Size)</th>
                         <th data-i18n-key="transactions_table_type">Type</th>
                         <th data-i18n-key="transactions_table_amount">Amount</th>
+                        <th data-i18n-key="transactions_table_cost">Cost (ea.)</th>
+                        <th data-i18n-key="transactions_table_total_cost">Total Cost</th>
                         <th data-i18n-key="transactions_table_new_stock">New Stock</th>
                     </tr>
                 </thead>
                 <tbody id="transactionTableBody">
                     <tr>
-                        <td colspan="6" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
+                        <td colspan="8" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -131,7 +134,7 @@
                 '/item-history': 'item_history.html',
                 '/transactions': 'transactions.html',
                 '/reports': 'reports.html',
-                '/categories': 'categories.html' // <-- ADD THIS LINE
+                '/categories': 'categories.html'
             };
             document.querySelectorAll('a[href^="/"]').forEach(a => {
                 const href = a.getAttribute('href');

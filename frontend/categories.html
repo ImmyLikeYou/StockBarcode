@@ -52,6 +52,36 @@
         </div>
     </main>
 
+    <div id="editCategoryModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 data-i18n-key="modal_edit_title">Edit Category</h3>
+            <form id="editCategoryForm">
+                <label for="editCategoryName" data-i18n-key="modal_edit_label">Category Name:</label>
+                <input type="text" id="editCategoryName" required>
+                <input type="hidden" id="editCategoryId">
+
+                <div class="modal-buttons">
+                    <button type="button" id="cancelEditBtn" class="modal-cancel-btn" data-i18n-key="modal_edit_cancel">Cancel</button>
+                    <button type="submit" class="modal-save-btn" data-i18n-key="modal_edit_save">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="deleteCategoryModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 data-i18n-key="modal_delete_category_title">Confirm Deletion</h3>
+            <p id="deleteCategoryText"></p>
+            <input type="hidden" id="deleteCategoryId">
+
+            <div class="modal-buttons">
+                <button type="button" id="cancelDeleteBtn" class="modal-cancel-btn" data-i18n-key="modal_edit_cancel">Cancel</button>
+                <button type="button" id="confirmDeleteBtn" class="modal-delete-btn" data-i18n-key="categories_delete_button">Delete</button>
+            </div>
+        </div>
+    </div>
+
+
     <script type="module" data-src="/scripts/categories.js"></script>
     <script>
         (function() {
@@ -80,7 +110,7 @@
                 '/item-history': 'item_history.html',
                 '/transactions': 'transactions.html',
                 '/reports': 'reports.html',
-                '/categories': 'categories.html' // <-- Added new route
+                '/categories': 'categories.html'
             };
             document.querySelectorAll('a[href^="/"]').forEach(a => {
                 const href = a.getAttribute('href');

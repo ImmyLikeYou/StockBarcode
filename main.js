@@ -23,24 +23,20 @@ function ensureFileExists(filePath, defaultContent) {
     if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, defaultContent);
 }
 
-// --- MODIFIED loadFile FUNCTION ---
 function loadFile(filePath) {
     ensureFileExists(filePath, filePath.endsWith('transactions.json') ? '[]' : '{}');
     try {
         const rawData = fs.readFileSync(filePath);
-        if (rawData.length === 0) { // File is empty
+        if (rawData.length === 0) {
             return filePath.endsWith('transactions.json') ? [] : {};
         }
 
         const data = JSON.parse(rawData);
 
-        // --- THIS IS THE FIX ---
-        // If we expect an array but get an object (or null/string/etc.), return an empty array.
         if (filePath.endsWith('transactions.json') && !Array.isArray(data)) {
             console.warn(`Warning: ${filePath} was corrupted (not an array). Resetting to [].`);
-            return []; // Force it to be an array
+            return [];
         }
-        // --- END FIX ---
 
         return data;
     } catch (error) {
@@ -48,7 +44,6 @@ function loadFile(filePath) {
         return filePath.endsWith('transactions.json') ? [] : {};
     }
 }
-// --- END MODIFICATION ---
 
 function saveFile(filePath, data) {
     try {
@@ -143,8 +138,59 @@ async function init() {
         return { id: newId, name: categoryName };
     });
 
+    // --- NEW: Update Category ---
+    ipcMain.handle('update-category', async(event, { id, newName }) => {
+        if (!id || !newName) {
+            throw JSON.stringify({ message: 'error_category_name_empty' });
+        }
+        if (id === 'cat_0') {
+            throw JSON.stringify({ message: 'error_category_delete_default' });
+        }
+        const categories = loadFile(CATEGORIES_PATH);
+        if (!categories[id]) {
+            throw JSON.stringify({ message: 'Category not found' });
+        }
+        categories[id] = newName;
+        saveFile(CATEGORIES_PATH, categories);
+        return { id, name: newName };
+    });
+
+    // --- NEW: Delete Category (and re-assign products) ---
+    ipcMain.handle('delete-category', async(event, { id }) => {
+        if (!id) {
+            throw JSON.stringify({ message: 'Category ID is required' });
+        }
+        if (id === 'cat_0') {
+            throw JSON.stringify({ message: 'error_category_delete_default' });
+        }
+
+        const categories = loadFile(CATEGORIES_PATH);
+        const products = loadFile(PRODUCTS_PATH);
+
+        if (!categories[id]) {
+            throw JSON.stringify({ message: 'Category not found' });
+        }
+
+        // 1. Delete the category
+        delete categories[id];
+
+        // 2. Re-assign products to 'Default' (cat_0)
+        for (const barcode in products) {
+            if (products[barcode].category_id === id) {
+                products[barcode].category_id = 'cat_0';
+            }
+        }
+
+        // 3. Save both files
+        saveFile(CATEGORIES_PATH, categories);
+        saveFile(PRODUCTS_PATH, products);
+
+        return { success: true, message: 'Category deleted and products reassigned.' };
+    });
+
+
     ipcMain.handle('add-product', async(event, productData) => {
-        const { productName, principalCode, typeCode, category_id } = productData || {};
+        const { productName, principalCode, typeCode, category_id, default_cost } = productData || {};
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
             throw JSON.stringify({ message: 'error_invalid_data' });
         }
@@ -160,7 +206,8 @@ async function init() {
 
         products[newBarcode] = {
             name: productName,
-            category_id: category_id || 'cat_0'
+            category_id: category_id || 'cat_0',
+            default_cost: parseFloat(default_cost) || 0
         };
         inventory[newBarcode] = {};
 
@@ -203,33 +250,54 @@ async function init() {
         const products = loadFile(PRODUCTS_PATH);
         const product = products[barcode];
         if (!product) throw JSON.stringify({ message: 'error_product_not_found' });
-        return { barcode, name: product.name };
+        return product;
     });
 
     ipcMain.handle('update-product', async(event, args) => {
-        const { barcode, productName } = args || {};
-        if (!barcode || !productName) throw JSON.stringify({ message: 'error_barcode_name_required' });
+        const { barcode, productName, default_cost, sizeCosts } = args || {};
+
+        if (!barcode || !productName) {
+            throw JSON.stringify({ message: 'error_barcode_name_required' });
+        }
+
         const products = loadFile(PRODUCTS_PATH);
-        if (!products[barcode]) throw JSON.stringify({ message: 'error_product_not_found' });
+        const inventory = loadFile(INVENTORY_PATH);
+
+        if (!products[barcode]) {
+            throw JSON.stringify({ message: 'error_product_not_found' });
+        }
 
         products[barcode].name = productName;
+        products[barcode].default_cost = parseFloat(default_cost) || 0;
+
+        if (!inventory[barcode]) {
+            inventory[barcode] = {};
+        }
+
+        for (const size in sizeCosts) {
+            const newCost = parseFloat(sizeCosts[size]) || 0;
+            const currentStock = (inventory[barcode][size] && inventory[barcode][size].stock) ? inventory[barcode][size].stock : 0;
+            inventory[barcode][size] = {
+                stock: currentStock,
+                cost: newCost
+            };
+        }
 
         saveFile(PRODUCTS_PATH, products);
-        return { success: true, updatedProduct: { barcode, name: productName } };
+        saveFile(INVENTORY_PATH, inventory);
+
+        return { success: true, updatedProduct: products[barcode] };
     });
 
     ipcMain.handle('process-transaction', async(event, args) => {
-        const { lookupValue, amount, mode, size, cost } = args;
-
-        if ((mode === 'add' || mode === 'adjust') && (isNaN(cost) || cost < 0)) {
-            throw JSON.stringify({ message: 'error_invalid_cost' });
-        }
+        const { lookupValue, amount, mode, size } = args;
 
         const inventory = loadFile(INVENTORY_PATH);
         const transactions = loadFile(TRANSACTIONS_PATH);
         const products = loadFile(PRODUCTS_PATH);
 
-        const itemName = products[lookupValue] ? products[lookupValue].name : 'Unknown Item';
+        const product = products[lookupValue];
+        const itemName = product ? product.name : 'Unknown Item';
 
         if (!inventory[lookupValue]) {
             throw JSON.stringify({
@@ -237,12 +305,16 @@ async function init() {
                 context: { itemCode: lookupValue }
             });
         }
+
         if (!inventory[lookupValue][size]) {
-            inventory[lookupValue][size] = { stock: 0, cost: 0 };
+            const defaultCost = (product && product.default_cost) ? product.default_cost : 0;
+            inventory[lookupValue][size] = { stock: 0, cost: defaultCost };
         }
 
         let currentStock = inventory[lookupValue][size].stock;
-        let newStock, logType, transactionAmount = amount;
+        let newStock, logType, transactionAmount, totalCost;
+        transactionAmount = (mode === 'adjust') ? (amount - currentStock) : amount;
+
 
         if (mode === 'cut') {
             if (currentStock < amount) {
@@ -259,15 +331,11 @@ async function init() {
         } else { // adjust
             newStock = amount;
             logType = 'Adjusted';
-            transactionAmount = newStock - currentStock;
         }
 
-        let newCost;
-        if (mode === 'add' || mode === 'adjust') {
-            newCost = cost;
-        } else { // 'cut'
-            newCost = inventory[lookupValue][size].cost || 0;
-        }
+        const newCost = inventory[lookupValue][size].cost || 0;
+
+        totalCost = (logType === 'Cut') ? (newCost * transactionAmount * -1) : (newCost * transactionAmount);
 
         inventory[lookupValue][size] = {
             stock: newStock,
@@ -281,6 +349,8 @@ async function init() {
             amount: transactionAmount,
             type: logType,
             newStock,
+            cost: newCost,
+            totalCost: totalCost
         };
 
         transactions.push(newTransaction);

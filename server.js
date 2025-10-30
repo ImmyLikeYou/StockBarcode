@@ -66,23 +66,19 @@ function getDataFilePath(filename) {
     return path.join(dataDir, filename);
 }
 
-// --- MODIFIED loadFile FUNCTION ---
 function loadFile(filePath) {
     const rawData = fs.readFileSync(filePath);
-    if (rawData.length === 0) { // File is empty
+    if (rawData.length === 0) {
         return filePath.endsWith('transactions.json') ? [] : {};
     }
 
     try {
         const data = JSON.parse(rawData);
 
-        // --- THIS IS THE FIX ---
-        // If we expect an array but get an object (or null/string/etc.), return an empty array.
         if (filePath.endsWith('transactions.json') && !Array.isArray(data)) {
             console.warn(`Warning: ${filePath} was corrupted (not an array). Resetting to [].`);
-            return []; // Force it to be an array
+            return [];
         }
-        // --- END FIX ---
 
         return data;
     } catch (err) {
@@ -90,7 +86,6 @@ function loadFile(filePath) {
         return filePath.endsWith('transactions.json') ? [] : {};
     }
 }
-// --- END MODIFICATION ---
 
 function saveFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
@@ -139,20 +134,41 @@ app.get('/categories', (req, res) => {
 app.put('/api/product/:barcode', (req, res) => {
     try {
         const { barcode } = req.params;
-        const { productName } = req.body;
+        const { productName, default_cost, sizeCosts } = req.body;
 
         if (!productName) {
             return res.status(400).json({ message: 'error_name_empty' });
         }
+
         const products = loadFile(PRODUCTS_PATH);
+        const inventory = loadFile(INVENTORY_PATH);
+
         if (!products[barcode]) {
             return res.status(404).json({ message: 'error_product_not_found' });
         }
 
         products[barcode].name = productName;
-        saveFile(PRODUCTS_PATH, products);
+        products[barcode].default_cost = parseFloat(default_cost) || 0;
 
-        res.status(200).json({ message: 'Product updated successfully', updatedProduct: { barcode, name: productName } });
+        if (!inventory[barcode]) {
+            inventory[barcode] = {};
+        }
+
+        if (sizeCosts) {
+            for (const size in sizeCosts) {
+                const newCost = parseFloat(sizeCosts[size]) || 0;
+                const currentStock = (inventory[barcode][size] && inventory[barcode][size].stock) ? inventory[barcode][size].stock : 0;
+                inventory[barcode][size] = {
+                    stock: currentStock,
+                    cost: newCost
+                };
+            }
+        }
+
+        saveFile(PRODUCTS_PATH, products);
+        saveFile(INVENTORY_PATH, inventory);
+
+        res.status(200).json({ message: 'Product updated successfully', updatedProduct: products[barcode] });
 
     } catch (err) {
         console.error("Error updating product:", err);
@@ -166,7 +182,7 @@ app.get('/api/product/:barcode', (req, res) => {
         const products = loadFile(PRODUCTS_PATH);
         const product = products[barcode];
         if (!product) return res.status(404).json({ message: 'error_product_not_found' });
-        res.json({ barcode, name: product.name });
+        res.json(product);
     } catch (err) {
         console.error('Error fetching product:', err);
         res.status(500).json({ message: 'Server error' });
@@ -212,10 +228,69 @@ app.post('/api/category', (req, res) => {
     }
 });
 
+// --- NEW: Update Category ---
+app.put('/api/category/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { newName } = req.body;
+
+        if (!newName) {
+            return res.status(400).json({ message: 'error_category_name_empty' });
+        }
+        if (id === 'cat_0') {
+            return res.status(403).json({ message: 'error_category_delete_default' });
+        }
+
+        const categories = loadFile(CATEGORIES_PATH);
+        if (!categories[id]) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
+
+        categories[id] = newName;
+        saveFile(CATEGORIES_PATH, categories);
+        res.status(200).json({ id, name: newName });
+    } catch (err) {
+        console.error('Server error updating category:', err);
+        res.status(500).json({ message: 'Server error updating category' });
+    }
+});
+
+// --- NEW: Delete Category ---
+app.delete('/api/category/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        if (id === 'cat_0') {
+            return res.status(403).json({ message: 'error_category_delete_default' });
+        }
+
+        const categories = loadFile(CATEGORIES_PATH);
+        const products = loadFile(PRODUCTS_PATH);
+
+        if (!categories[id]) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
+
+        delete categories[id];
+
+        for (const barcode in products) {
+            if (products[barcode].category_id === id) {
+                products[barcode].category_id = 'cat_0'; // Re-assign to Default
+            }
+        }
+
+        saveFile(CATEGORIES_PATH, categories);
+        saveFile(PRODUCTS_PATH, products);
+
+        res.status(200).json({ success: true, message: 'Category deleted and products reassigned.' });
+    } catch (err) {
+        console.error('Server error deleting category:', err);
+        res.status(500).json({ message: 'Server error deleting category' });
+    }
+});
 
 app.post('/api/product', (req, res) => {
     try {
-        const { productName, principalCode, typeCode, category_id } = req.body;
+        const { productName, principalCode, typeCode, category_id, default_cost } = req.body;
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
             return res.status(400).json({ message: 'error_invalid_data' });
         }
@@ -231,7 +306,8 @@ app.post('/api/product', (req, res) => {
 
         products[newBarcode] = {
             name: productName,
-            category_id: category_id || 'cat_0'
+            category_id: category_id || 'cat_0',
+            default_cost: parseFloat(default_cost) || 0
         };
         inventory[newBarcode] = {};
 
@@ -275,22 +351,21 @@ app.delete('/api/product/:barcode', (req, res) => {
 });
 
 app.post('/api/transaction', (req, res) => {
-    const { lookupValue, amount, mode, size, cost } = req.body;
+    const { lookupValue, amount, mode, size } = req.body;
 
     if (!lookupValue || isNaN(amount) || !mode || !size ||
         ((mode === 'add' || mode === 'cut') && amount < 1) ||
         (mode === 'adjust' && amount < 0)) {
         return res.status(400).json({ message: 'error_invalid_data' });
     }
-    if ((mode === 'add' || mode === 'adjust') && (isNaN(cost) || cost < 0)) {
-        return res.status(400).json({ message: 'error_invalid_cost' });
-    }
 
     try {
         const inventory = loadFile(INVENTORY_PATH);
         const transactions = loadFile(TRANSACTIONS_PATH);
         const products = loadFile(PRODUCTS_PATH);
-        const itemName = products[lookupValue] ? products[lookupValue].name : "Unknown Item";
+
+        const product = products[lookupValue];
+        const itemName = product ? product.name : "Unknown Item";
 
         if (!inventory.hasOwnProperty(lookupValue)) {
             return res.status(404).json({
@@ -298,9 +373,11 @@ app.post('/api/transaction', (req, res) => {
                 context: { itemCode: lookupValue }
             });
         }
+
         if (!inventory[lookupValue].hasOwnProperty(size)) {
+            const defaultCost = (product && product.default_cost) ? product.default_cost : 0;
             if (mode === 'add' || mode === 'adjust') {
-                inventory[lookupValue][size] = { stock: 0, cost: 0 };
+                inventory[lookupValue][size] = { stock: 0, cost: defaultCost };
             } else {
                 return res.status(404).json({
                     message: 'error_size_not_found',
@@ -312,8 +389,9 @@ app.post('/api/transaction', (req, res) => {
         let currentStock = inventory[lookupValue][size].stock;
         let newStock;
         let logType;
-        let transactionAmount = amount;
-        let message;
+        let transactionAmount;
+        let totalCost;
+        transactionAmount = (mode === 'adjust') ? (amount - currentStock) : amount;
 
         if (mode === 'cut') {
             if (currentStock < amount) {
@@ -325,24 +403,17 @@ app.post('/api/transaction', (req, res) => {
             }
             newStock = currentStock - amount;
             logType = "Cut";
-            message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
         } else if (mode === 'add') {
             newStock = currentStock + amount;
             logType = "Added";
-            message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
         } else { // mode === 'adjust'
             newStock = amount;
             logType = "Adjusted";
-            transactionAmount = newStock - currentStock;
-            message = `OK: ${logType} ${itemName} (${size}) stock to ${newStock}.`;
         }
 
-        let newCost;
-        if (mode === 'add' || mode === 'adjust') {
-            newCost = cost;
-        } else { // 'cut'
-            newCost = inventory[lookupValue][size].cost || 0;
-        }
+        const newCost = inventory[lookupValue][size].cost || 0;
+
+        totalCost = (logType === 'Cut') ? (newCost * transactionAmount * -1) : (newCost * transactionAmount);
 
         inventory[lookupValue][size] = {
             stock: newStock,
@@ -355,12 +426,19 @@ app.post('/api/transaction', (req, res) => {
             itemName: `${itemName} (${size})`,
             amount: transactionAmount,
             type: logType,
-            newStock: newStock
+            newStock: newStock,
+            cost: newCost,
+            totalCost: totalCost
         };
         transactions.push(newTransaction);
 
         saveFile(INVENTORY_PATH, inventory);
         saveFile(TRANSACTIONS_PATH, transactions);
+
+        let message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
+        if (mode === 'adjust') {
+            message = `OK: ${logType} ${itemName} (${size}) stock to ${newStock}.`;
+        }
 
         res.status(200).json({
             message: message,

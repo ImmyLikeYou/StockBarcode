@@ -14,7 +14,6 @@
             link.setAttribute('href', location.protocol === 'file:' ? href.replace(/^\//, '') : href);
         })();
     </script>
-    <script type="module" data-src="/scripts/route_handler.js"></script>
 </head>
 
 <body>
@@ -37,23 +36,39 @@
     <main id="main-content">
         <div id="container">
             <h1 data-i18n-key="product_edit_title">Edit Product</h1>
+
             <form id="editProductForm">
-                <div>
-                    <label for="productBarcode" data-i18n-key="product_edit_barcode_label">Barcode (Read-only):</label>
-                    <input type="text" id="productBarcode" value="" readonly>
+
+                <div id="product-details">
+                    <div>
+                        <label for="productBarcode" data-i18n-key="product_edit_barcode_label">Barcode (Read-only):</label>
+                        <input type="text" id="productBarcode" value="" readonly>
+                    </div>
+                    <div>
+                        <label for="productName" data-i18n-key="product_edit_name_label">Stock Barcode:</label>
+                        <input type="text" id="productName" value="" required>
+                    </div>
+                    <div>
+                        <label for="defaultCost" data-i18n-key="product_edit_cost_label">Default Cost Price:</label>
+                        <input type="number" id="defaultCost" value="0" min="0" step="0.01" required>
+                    </div>
                 </div>
-                <div>
-                    <label for="productName" data-i18n-key="product_edit_name_label">Stock Barcode:</label>
-                    <input type="text" id="productName" value="" required>
+
+                <div id="size-costs-list">
+                    <h2 data-i18n-key="product_edit_size_costs_title">Size Specific Costs</h2>
+                    <p data-i18n-key="product_edit_size_costs_desc">Set a specific cost for each size. If left at 0, the 'Default Cost Price' will be used when this size is first added to stock.</p>
+
+                    <div id="size-cost-grid-container" class="size-cost-grid">
+                    </div>
                 </div>
-                <button type="submit" data-i18n-key="product_edit_button">Update Stock Barcode</button>
+                <button type="submit" data-i18n-key="product_edit_save_button">Save All Changes</button>
             </form>
+
             <div id="message"></div>
         </div>
     </main>
 
     <script type="module" data-src="/scripts/edit_product.js"></script>
-
     <script>
         (function() {
             // set script src attributes

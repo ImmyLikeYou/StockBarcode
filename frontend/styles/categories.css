@@ -153,7 +153,7 @@ h1 {
 }
 
 
-/* Category List Styles */
+/* --- MODIFIED: Category List Styles --- */
 
 #categoryList {
     list-style-type: none;
@@ -162,6 +162,9 @@ h1 {
 }
 
 #categoryList li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: 12px;
     font-size: 1.1em;
     border-bottom: 1px solid #f0f0f0;
@@ -170,3 +173,120 @@ h1 {
 #categoryList li:last-child {
     border-bottom: none;
 }
+
+.category-name {
+    flex-grow: 1;
+}
+
+.category-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.category-actions button {
+    border: none;
+    padding: 5px 10px;
+    font-size: 0.9em;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.edit-btn {
+    background-color: #ffc107;
+    /* Yellow */
+    color: #212529;
+}
+
+.delete-btn {
+    background-color: #dc3545;
+    /* Red */
+    color: white;
+}
+
+
+/* --- END MODIFICATION --- */
+
+
+/* --- NEW: Modal Styles --- */
+
+.modal-overlay {
+    display: none;
+    /* Hidden by default */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0, 0, 0, 0.5);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: auto;
+    padding: 25px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 450px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content h3 {
+    margin-top: 0;
+}
+
+.modal-content label {
+    display: block;
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+.modal-content input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 1.1em;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+.modal-buttons {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.modal-buttons button {
+    padding: 10px 20px;
+    border-radius: 5px;
+    border: none;
+    font-size: 1em;
+    cursor: pointer;
+}
+
+.modal-save-btn {
+    background-color: #28a745;
+    /* Green */
+    color: white;
+}
+
+.modal-delete-btn {
+    background-color: #dc3545;
+    /* Red */
+    color: white;
+}
+
+.modal-cancel-btn {
+    background-color: #6c757d;
+    /* Grey */
+    color: white;
+}
+
+
+/* --- END NEW --- */

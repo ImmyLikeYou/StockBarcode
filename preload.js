@@ -7,10 +7,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     addProduct: (args) => ipcRenderer.invoke('add-product', args),
     deleteProduct: (barcode) => ipcRenderer.invoke('delete-product', barcode),
     clearLog: () => ipcRenderer.invoke('clear-log'),
-    getProduct: (barcode) => ipcRenderer.invoke('get-product', barcode), // For edit page
-    updateProduct: (args) => ipcRenderer.invoke('update-product', args), // For edit page
+    getProduct: (barcode) => ipcRenderer.invoke('get-product', barcode),
+    updateProduct: (args) => ipcRenderer.invoke('update-product', args),
 
-    // --- NEW ---
+    // Category functions
     getCategories: () => ipcRenderer.invoke('get-categories'),
-    addCategory: (categoryName) => ipcRenderer.invoke('add-category', categoryName)
+    addCategory: (categoryName) => ipcRenderer.invoke('add-category', categoryName),
+    // --- NEW ---
+    updateCategory: (args) => ipcRenderer.invoke('update-category', args),
+    deleteCategory: (args) => ipcRenderer.invoke('delete-category', args)
 });

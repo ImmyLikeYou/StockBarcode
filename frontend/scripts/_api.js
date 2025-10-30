@@ -20,7 +20,7 @@ export async function loadData() {
 }
 
 /**
- * --- NEW: Load all categories ---
+ * Load all categories
  * @returns {Promise<Object>} e.g., {"cat_1": "T-Shirts"}
  */
 export async function getCategories() {
@@ -33,7 +33,7 @@ export async function getCategories() {
 }
 
 /**
- * --- NEW: Add a new category ---
+ * Add a new category
  * @param {string} categoryName - The name for the new category
  * @returns {Promise<{id: string, name: string}>}
  */
@@ -55,14 +55,56 @@ export async function addCategory(categoryName) {
     return await resp.json();
 }
 
+// --- NEW: Update Category ---
+/**
+ * Update an existing category.
+ * @param {string} id - The ID of the category to update (e.g., "cat_123")
+ * @param {string} newName - The new name for the category
+ * @returns {Promise<{id: string, name: string}>}
+ */
+export async function updateCategory(id, newName) {
+    if (hasElectronAPI && window.electronAPI.updateCategory) {
+        return await window.electronAPI.updateCategory({ id, newName });
+    }
+    const resp = await fetch(`/api/category/${encodeURIComponent(id)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newName })
+    });
+    if (!resp.ok) {
+        const errObj = await resp.json().catch(() => ({}));
+        const err = new Error(errObj.message || 'Server error updating category');
+        err.serverResponse = errObj;
+        throw err;
+    }
+    return await resp.json();
+}
+
+// --- NEW: Delete Category ---
+/**
+ * Delete a category.
+ * @param {string} id - The ID of the category to delete
+ * @returns {Promise<Object>}
+ */
+export async function deleteCategory(id) {
+    if (hasElectronAPI && window.electronAPI.deleteCategory) {
+        return await window.electronAPI.deleteCategory({ id });
+    }
+    const resp = await fetch(`/api/category/${encodeURIComponent(id)}`, {
+        method: 'DELETE'
+    });
+    if (!resp.ok) {
+        const errObj = await resp.json().catch(() => ({}));
+        const err = new Error(errObj.message || 'Server error deleting category');
+        err.serverResponse = errObj;
+        throw err;
+    }
+    return await resp.json();
+}
 
 /**
  * Process a transaction (add/cut/adjust stock).
  * @param {Object} payload - The transaction details
- * @param {string} payload.lookupValue - The product barcode
- * @param {number} payload.amount - Amount to add/cut or new stock level for adjust
- * @param {('add'|'cut'|'adjust')} payload.mode - Transaction type
- * @param {string} payload.size - Product size
  * @returns {Promise<{updatedItem: Object, newTransaction: Object, message: string}>}
  */
 export async function processTransaction(payload) {
@@ -86,9 +128,6 @@ export async function processTransaction(payload) {
 /**
  * Add a new product.
  * @param {Object} productData - The product details
- * @param {string} productData.productName - Product name/description
- * @param {string} productData.principalCode - First 4 digits of barcode
- * @param {string} productData.typeCode - Next 4 digits of barcode
  * @returns {Promise<{barcode: string, name: string}>}
  */
 export async function addProduct(productData) {
@@ -137,7 +176,7 @@ export async function clearLog() {
 /**
  * Get details for a specific product.
  * @param {string} barcode - Product barcode to look up
- * @returns {Promise<{barcode: string, name: string}>}
+ * @returns {Promise<Object>} The full product object
  */
 export async function getProduct(barcode) {
     if (hasElectronAPI && window.electronAPI.getProduct) {
@@ -152,21 +191,21 @@ export async function getProduct(barcode) {
 }
 
 /**
- * Update a product's details.
+ * Update a product's details and size-specific costs.
  * @param {Object} payload - The update details
- * @param {string} payload.barcode - Product barcode
- * @param {string} payload.productName - New product name/description
  * @returns {Promise<void>}
  */
 export async function updateProduct(payload) {
     if (hasElectronAPI && window.electronAPI.updateProduct) {
         return await window.electronAPI.updateProduct(payload);
     }
+
     const resp = await fetch(`/api/product/${encodeURIComponent(payload.barcode)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productName: payload.productName })
+        body: JSON.stringify(payload)
     });
+
     if (!resp.ok) {
         const errObj = await resp.json().catch(() => ({}));
         throw new Error(errObj.message || 'Server error updating product');
@@ -181,7 +220,6 @@ export async function updateProduct(payload) {
 export function getRouteHref(route) {
     if (location.protocol !== 'file:') return route;
 
-    // Convert kebab-case URLs to snake_case filenames
     const routeMap = {
         '/': 'barcode_receiver.html',
         '/add-product': 'add_product.html',
@@ -190,10 +228,9 @@ export function getRouteHref(route) {
         '/item-history': 'item_history.html',
         '/transactions': 'transactions.html',
         '/reports': 'reports.html',
-        '/categories': 'categories.html' // --- NEW ---
+        '/categories': 'categories.html'
     };
 
-    // Handle parameterized routes
     if (route.startsWith('/edit-product/')) {
         const barcode = route.split('/').pop();
         return `edit_product.html?barcode=${encodeURIComponent(barcode)}`;
@@ -203,7 +240,6 @@ export function getRouteHref(route) {
         return `item_history.html?barcode=${encodeURIComponent(barcode)}`;
     }
 
-    // Handle basic routes
     const base = route.split('?')[0].replace(/\/$/, '');
     return routeMap[base] || route;
 }
@@ -213,23 +249,19 @@ export function getRouteHref(route) {
  * @returns {string|null} Extracted barcode or null if not found
  */
 export function getBarcodeFromUrl() {
-    // Try query parameter first
     const params = new URLSearchParams(window.location.search);
     let bc = params.get('barcode');
     if (bc) return bc;
 
-    // Try pathname segment
     const path = window.location.pathname || '';
     const parts = path.split('/').filter(Boolean);
     if (parts.length > 0) {
         const last = parts[parts.length - 1];
-        // Skip if last part looks like page name
         if (!last.match(/^(edit-product|item-history)(\.html)?$/i)) {
             return last;
         }
     }
 
-    // Finally try hash
     if (window.location.hash) {
         return window.location.hash.replace('#', '');
     }

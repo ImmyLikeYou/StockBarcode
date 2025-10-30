@@ -1,12 +1,10 @@
 import { loadData } from './_api.js';
-// 1. Import i18n functions
-import { initializeI18n, setLanguage, t } from './i18n.js';
+import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
 
 const transactionTableBody = document.getElementById('transactionTableBody');
 const exportButton = document.getElementById('exportButton');
 const graphCanvas = document.getElementById('transactionChart');
 
-// Search elements
 const searchCategory = document.getElementById('searchCategory');
 const searchNameInput = document.getElementById('searchNameInput');
 const searchDateInput = document.getElementById('searchDateInput');
@@ -16,30 +14,41 @@ const suggestionsDiv = document.getElementById('suggestions');
 let allTransactions = [];
 let filteredTransactions = [];
 let transactionChart = null;
-let uniqueItemNames = []; // For autocomplete
+let uniqueItemNames = [];
+
+// --- NEW: Store inventory and product data here ---
+let currentInventory = {};
+let currentProducts = {};
 
 /**
- * Fetches transaction data and populates unique item names.
+ * Fetches transaction, inventory, and product data.
  */
 async function loadTransactionData() {
     try {
         const data = await loadData();
+        // --- NEW: Store all data ---
         allTransactions = data.transactions || [];
+        currentInventory = data.inventory || {};
+        currentProducts = data.products || {};
+
+        if (!Array.isArray(allTransactions)) {
+            allTransactions = [];
+        }
+
         allTransactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-        // Populate unique item names for suggestions (extract base name without size)
         const nameSet = new Set();
         allTransactions.forEach(t => {
-            const baseName = t.itemName.replace(/\s\(.+\)$/, ''); // Remove size like " (S)"
+            const baseName = t.itemName.replace(/\s\(.+\)$/, '');
             nameSet.add(baseName);
         });
-        uniqueItemNames = Array.from(nameSet).sort(); // Convert Set to sorted Array
+        uniqueItemNames = Array.from(nameSet).sort();
 
-        applyFilter(); // Initial display
+        applyFilter();
     } catch (err) {
         console.error('Error loading transaction data:', err);
-        // 2. Use translation key for error
-        transactionTableBody.innerHTML = `<tr><td colspan="6" style="color: red; text-align: center;">${t('error_loading_transactions')}</td></tr>`;
+        const { key, context } = parseError(err);
+        transactionTableBody.innerHTML = `<tr><td colspan="8" style="color: red; text-align: center;">${t(key, context) || t('error_loading_transactions')}</td></tr>`;
     }
 }
 
@@ -48,24 +57,22 @@ async function loadTransactionData() {
  */
 function handleCategoryChange() {
     const category = searchCategory.value;
-    // Hide all inputs first
     searchNameInput.style.display = 'none';
     searchDateInput.style.display = 'none';
     searchTypeInput.style.display = 'none';
-    suggestionsDiv.style.display = 'none'; // Hide suggestions
+    suggestionsDiv.style.display = 'none';
 
-    // Show the relevant input
     if (category === 'name') {
         searchNameInput.style.display = 'inline-block';
-        searchNameInput.value = ''; // Clear previous value
+        searchNameInput.value = '';
     } else if (category === 'date') {
         searchDateInput.style.display = 'inline-block';
-        searchDateInput.value = ''; // Clear previous value
+        searchDateInput.value = '';
     } else if (category === 'type') {
         searchTypeInput.style.display = 'inline-block';
-        searchTypeInput.value = ''; // Clear previous value
+        searchTypeInput.value = '';
     }
-    applyFilter(); // Re-filter when category changes
+    applyFilter();
 }
 
 /**
@@ -78,7 +85,7 @@ function applyFilter() {
     if (category === 'name') {
         searchTerm = searchNameInput.value.toLowerCase();
     } else if (category === 'date') {
-        searchTerm = searchDateInput.value; // Keep as YYYY-MM-DD
+        searchTerm = searchDateInput.value;
     } else if (category === 'type') {
         searchTerm = searchTypeInput.value.toLowerCase();
     }
@@ -88,15 +95,13 @@ function applyFilter() {
     } else {
         filteredTransactions = allTransactions.filter(entry => {
             if (category === 'name') {
-                // Check if base item name includes the term
                 return entry.itemName.toLowerCase().includes(searchTerm);
             } else if (category === 'date') {
-                // Compare only the date part of the timestamp
                 return entry.timestamp.startsWith(searchTerm);
             } else if (category === 'type') {
                 return entry.type.toLowerCase().includes(searchTerm);
             }
-            return false; // Should not happen
+            return false;
         });
     }
 
@@ -109,7 +114,7 @@ function applyFilter() {
  */
 function showSuggestions() {
     const inputText = searchNameInput.value.toLowerCase();
-    suggestionsDiv.innerHTML = ''; // Clear previous suggestions
+    suggestionsDiv.innerHTML = '';
 
     if (!inputText) {
         suggestionsDiv.style.display = 'none';
@@ -123,16 +128,15 @@ function showSuggestions() {
     if (matchingNames.length > 0) {
         matchingNames.forEach(name => {
             const div = document.createElement('div');
-            // Highlight the matching part
             const index = name.toLowerCase().indexOf(inputText);
             const highlighted = name.substring(0, index) +
                 `<span class="highlight">${name.substring(index, index + inputText.length)}</span>` +
                 name.substring(index + inputText.length);
             div.innerHTML = highlighted;
             div.addEventListener('click', () => {
-                searchNameInput.value = name; // Fill input with selected name
-                suggestionsDiv.style.display = 'none'; // Hide suggestions
-                applyFilter(); // Trigger filter
+                searchNameInput.value = name;
+                suggestionsDiv.style.display = 'none';
+                applyFilter();
             });
             suggestionsDiv.appendChild(div);
         });
@@ -142,25 +146,77 @@ function showSuggestions() {
     }
 }
 
+// --- THIS IS THE FIXED RENDER FUNCTION ---
 function renderTable() {
     transactionTableBody.innerHTML = '';
     if (filteredTransactions.length === 0) {
-        // 3. Use translation key for empty message
-        transactionTableBody.innerHTML = `<tr><td colspan="6" style="text-align: center;">${t('transactions_no_match')}</td></tr>`;
+        transactionTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center;">${t('transactions_no_match')}</td></tr>`;
         return;
     }
     const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
     const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+
+    let grandTotalCost = 0;
+
     filteredTransactions.forEach(entry => {
         const entryDate = new Date(entry.timestamp);
         const dateStr = entryDate.toLocaleDateString(undefined, dateOptions);
         const timeStr = entryDate.toLocaleTimeString(undefined, timeOptions);
+
+        // --- THIS IS THE FIX ---
+        let costEach = parseFloat(entry.cost);
+        const amount = parseFloat(entry.amount) || 0;
+
+        // 1. If cost wasn't saved (old data), try to find it
+        if (isNaN(costEach) || costEach === 0) {
+            try {
+                // Extract size from item name, e.g., "T-Shirt (S)" -> "S"
+                const sizeMatch = entry.itemName.match(/\(([^)]+)\)$/);
+                if (sizeMatch && entry.itemCode && currentInventory[entry.itemCode] && currentInventory[entry.itemCode][sizeMatch[1]]) {
+                    costEach = parseFloat(currentInventory[entry.itemCode][sizeMatch[1]].cost) || 0;
+                }
+            } catch (e) {
+                console.warn("Could not find fallback cost for old transaction:", e);
+                costEach = 0; // Default to 0 if anything fails
+            }
+        }
+
+        // 2. Check if totalCost was saved (new data), otherwise calculate it
+        let totalCost = (entry.totalCost !== undefined && entry.totalCost !== null) ?
+            parseFloat(entry.totalCost) :
+            (costEach * amount); // Calculate for old data
+
+        // 3. Add to grand total
+        grandTotalCost += (isNaN(totalCost) ? 0 : totalCost);
+        // --- END FIX ---
+
         const row = document.createElement('tr');
-        row.className = (entry.type === 'Added') ? 'log-add' : 'log-cut';
-        row.innerHTML = `<td>${dateStr}</td><td>${timeStr}</td><td>${entry.itemName}</td><td>${entry.type}</td><td>${entry.amount}</td><td>${entry.newStock}</td>`;
+        row.className = (entry.type === 'Added') ? 'log-add' : (entry.type === 'Cut' ? 'log-cut' : 'log-adjust');
+
+        row.innerHTML = `
+            <td>${dateStr}</td>
+            <td>${timeStr}</td>
+            <td>${entry.itemName}</td>
+            <td>${entry.type}</td>
+            <td style="text-align: right;">${amount}</td>
+            <td style="text-align: right;">${costEach.toFixed(2)}</td>
+            <td style="text-align: right;">${totalCost.toFixed(2)}</td>
+            <td style="text-align: right;">${entry.newStock}</td>
+        `;
         transactionTableBody.appendChild(row);
     });
+
+    const totalRow = document.createElement('tr');
+    totalRow.style.fontWeight = 'bold';
+    totalRow.style.backgroundColor = '#f8f9fa';
+    totalRow.innerHTML = `
+        <td colspan="6" style="text-align: right;">Grand Total Cost:</td>
+        <td style="text-align: right;">${grandTotalCost.toFixed(2)}</td>
+        <td></td>
+    `;
+    transactionTableBody.appendChild(totalRow);
 }
+
 
 function renderChart() {
     if (!graphCanvas) return;
@@ -169,8 +225,9 @@ function renderChart() {
     filteredTransactions.forEach(entry => {
         const dateStr = entry.timestamp.split('T')[0];
         if (!dailyData[dateStr]) dailyData[dateStr] = { in: 0, out: 0 };
-        if (entry.type === 'Added') dailyData[dateStr].in += entry.amount;
-        else dailyData[dateStr].out += entry.amount;
+        const amount = parseFloat(entry.amount) || 0;
+        if (entry.type === 'Added') dailyData[dateStr].in += amount;
+        else if (entry.type === 'Cut') dailyData[dateStr].out += amount;
     });
     const sortedDates = Object.keys(dailyData).sort();
     const labels = sortedDates;
@@ -178,7 +235,6 @@ function renderChart() {
     const dataOut = sortedDates.map(date => dailyData[date].out);
     if (transactionChart) transactionChart.destroy();
 
-    // 4. Use translation keys for chart labels
     transactionChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -204,19 +260,49 @@ function renderChart() {
 }
 
 function exportToCsv() {
-    // 5. Use translation key for alert
     if (filteredTransactions.length === 0) { alert(t('transactions_no_export_data')); return; }
-    const headers = ["Date", "Time", "Item Name", "Type", "Amount", "New Stock Level"];
+
+    const headers = ["Date", "Time", "Item Name", "Type", "Amount", "Cost (ea.)", "Total Cost", "New Stock Level"];
     const csvRows = [headers.join(",")];
+
     const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
     const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+
+    // We re-use the same logic from renderTable to get the correct costs
     filteredTransactions.forEach(entry => {
         const entryDate = new Date(entry.timestamp);
         const dateStr = entryDate.toLocaleDateString(undefined, dateOptions);
         const timeStr = entryDate.toLocaleTimeString(undefined, timeOptions);
-        const values = [`"${dateStr}"`, `"${timeStr}"`, `"${entry.itemName.replace(/"/g, '""')}"`, entry.type, entry.amount, entry.newStock];
+
+        let costEach = parseFloat(entry.cost);
+        const amount = parseFloat(entry.amount) || 0;
+        if (isNaN(costEach) || costEach === 0) {
+            try {
+                const sizeMatch = entry.itemName.match(/\(([^)]+)\)$/);
+                if (sizeMatch && entry.itemCode && currentInventory[entry.itemCode] && currentInventory[entry.itemCode][sizeMatch[1]]) {
+                    costEach = parseFloat(currentInventory[entry.itemCode][sizeMatch[1]].cost) || 0;
+                }
+            } catch (e) {
+                costEach = 0;
+            }
+        }
+        const totalCost = (entry.totalCost !== undefined && entry.totalCost !== null) ?
+            parseFloat(entry.totalCost) :
+            (costEach * amount);
+
+        const values = [
+            `"${dateStr}"`,
+            `"${timeStr}"`,
+            `"${entry.itemName.replace(/"/g, '""')}"`,
+            entry.type,
+            amount,
+            costEach.toFixed(2),
+            totalCost.toFixed(2),
+            entry.newStock
+        ];
         csvRows.push(values.join(","));
     });
+
     const csvString = csvRows.join("\n");
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
@@ -232,40 +318,33 @@ function exportToCsv() {
 
 // --- Event Listeners ---
 searchCategory.addEventListener('change', handleCategoryChange);
-// Add listeners to trigger filter when inputs change
 searchNameInput.addEventListener('input', () => {
     applyFilter();
-    showSuggestions(); // Show suggestions as user types
+    showSuggestions();
 });
-searchDateInput.addEventListener('change', applyFilter); // 'change' is better for date input
+searchDateInput.addEventListener('change', applyFilter);
 searchTypeInput.addEventListener('input', applyFilter);
 exportButton.addEventListener('click', exportToCsv);
 
-// Hide suggestions if user clicks outside
 document.addEventListener('click', (event) => {
     if (!searchNameInput.contains(event.target) && !suggestionsDiv.contains(event.target)) {
         suggestionsDiv.style.display = 'none';
     }
 });
 
-// 6. Add language switcher listeners
-// Add language switcher listeners
 const langEnButton = document.getElementById('lang-en');
 if (langEnButton) {
     langEnButton.addEventListener('click', () => setLanguage('en'));
 }
-
 const langThButton = document.getElementById('lang-th');
 if (langThButton) {
     langThButton.addEventListener('click', () => setLanguage('th'));
 }
 
-
 // --- Initial Load ---
-// 7. Create new init function
 async function initializeApp() {
     await initializeI18n();
-    handleCategoryChange(); // Set initial input visibility
+    handleCategoryChange();
     loadTransactionData();
 }
 

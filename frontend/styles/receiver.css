@@ -118,7 +118,7 @@ input[type="text"] {
     box-sizing: border-box;
 }
 
-#scan-log {
+#scanLog {
     list-style-type: none;
     padding-left: 0;
     background-color: #eee;
@@ -128,7 +128,7 @@ input[type="text"] {
     overflow-y: auto;
 }
 
-#scan-log li {
+#scanLog li {
     background-color: #fff;
     padding: 8px 12px;
     border-bottom: 1px solid #ddd;
@@ -502,6 +502,9 @@ input[type="number"] {
 
 /* --- End Toast Styles --- */
 
+
+/* --- Cost Display Styles --- */
+
 .cost-display {
     color: #6c757d;
     /* Grey */
@@ -509,3 +512,43 @@ input[type="number"] {
     font-style: italic;
     margin-left: 10px;
 }
+
+
+/* --- New Size Selector Styles --- */
+
+.size-selector .size-row {
+    display: flex;
+    justify-content: flex-start;
+    gap: 2px;
+    /* Small gap between buttons */
+    margin-bottom: 5px;
+}
+
+.size-selector label {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #f9f9f9;
+    font-size: 0.9em;
+    margin-right: 0;
+    /* Remove default margin */
+    line-height: 1;
+    display: inline-block;
+    min-width: 25px;
+    text-align: center;
+}
+
+.size-selector input[type="radio"] {
+    display: none;
+    /* Hide the actual radio button */
+}
+
+.size-selector input[type="radio"]:checked+label {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+
+/* --- End Size Selector --- */

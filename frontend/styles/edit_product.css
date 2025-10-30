@@ -105,7 +105,8 @@ body {
     border-radius: 8px;
     padding: 20px;
     width: 100%;
-    max-width: 600px;
+    max-width: 800px;
+    /* --- Widen container --- */
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
@@ -126,7 +127,9 @@ form label {
     font-weight: bold;
 }
 
-form input[type="text"] {
+form input[type="text"],
+form input[type="number"],
+form select {
     width: 100%;
     padding: 10px;
     font-size: 1.1em;
@@ -135,17 +138,14 @@ form input[type="text"] {
     border-radius: 4px;
 }
 
-
-/* Style for read-only barcode */
-
 form input[readonly] {
     background-color: #e9ecef;
     cursor: not-allowed;
 }
 
-form button {
-    background-color: #007bff;
-    /* Blue for update */
+form button[type="submit"] {
+    background-color: #28a745;
+    /* --- Change to Green for Save --- */
     color: white;
     border: none;
     padding: 12px 20px;
@@ -156,6 +156,46 @@ form button {
 }
 
 
+/* --- NEW: Size Cost List Styles --- */
+
+#size-costs-list {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #eee;
+}
+
+#size-costs-list h2 {
+    margin-top: 0;
+}
+
+#size-costs-list p {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 15px;
+}
+
+.size-cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+}
+
+.size-cost-item label {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.size-cost-item input[type="number"] {
+    font-size: 1em;
+    padding: 8px;
+    text-align: right;
+}
+
+
+/* --- END NEW --- */
+
+
 /* Message Styles */
 
 #message {
@@ -163,7 +203,6 @@ form button {
     padding: 10px;
     border-radius: 4px;
     display: none;
-    /* Hidden by default */
     text-align: center;
 }
 
