@@ -1,9 +1,15 @@
 import { loadData } from './_api.js';
 import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
+import { navigateTo } from './route_handler.js'; // <-- ADD THIS LINE
 
 const transactionTableBody = document.getElementById('transactionTableBody');
 const exportButton = document.getElementById('exportButton');
 const graphCanvas = document.getElementById('transactionChart');
+
+// Get Summary Box elements
+const summaryAddedEl = document.getElementById('summary-added');
+const summaryCutEl = document.getElementById('summary-cut');
+const summaryNetEl = document.getElementById('summary-net');
 
 const searchCategory = document.getElementById('searchCategory');
 const searchNameInput = document.getElementById('searchNameInput');
@@ -16,7 +22,6 @@ let filteredTransactions = [];
 let transactionChart = null;
 let uniqueItemNames = [];
 
-// --- NEW: Store inventory and product data here ---
 let currentInventory = {};
 let currentProducts = {};
 
@@ -26,7 +31,6 @@ let currentProducts = {};
 async function loadTransactionData() {
     try {
         const data = await loadData();
-        // --- NEW: Store all data ---
         allTransactions = data.transactions || [];
         currentInventory = data.inventory || {};
         currentProducts = data.products || {};
@@ -48,6 +52,7 @@ async function loadTransactionData() {
     } catch (err) {
         console.error('Error loading transaction data:', err);
         const { key, context } = parseError(err);
+        // UPDATED: Colspan is now 8
         transactionTableBody.innerHTML = `<tr><td colspan="8" style="color: red; text-align: center;">${t(key, context) || t('error_loading_transactions')}</td></tr>`;
     }
 }
@@ -146,53 +151,79 @@ function showSuggestions() {
     }
 }
 
-// --- THIS IS THE FIXED RENDER FUNCTION ---
+
 function renderTable() {
     transactionTableBody.innerHTML = '';
+
+    // --- ADDED BACK: Summary calculation variables ---
+    let totalAdded = 0;
+    let totalCut = 0;
+    let grandTotalCost = 0;
+
     if (filteredTransactions.length === 0) {
+        // UPDATED: Colspan is now 8
         transactionTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center;">${t('transactions_no_match')}</td></tr>`;
+        // --- Reset summary box if no data ---
+        summaryAddedEl.textContent = 0;
+        summaryCutEl.textContent = 0;
+        summaryNetEl.textContent = 0;
+        summaryNetEl.className = 'summary-value summary-adjust'; // Reset color
         return;
     }
+
     const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
     const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-
-    let grandTotalCost = 0;
 
     filteredTransactions.forEach(entry => {
         const entryDate = new Date(entry.timestamp);
         const dateStr = entryDate.toLocaleDateString(undefined, dateOptions);
         const timeStr = entryDate.toLocaleTimeString(undefined, timeOptions);
 
-        // --- THIS IS THE FIX ---
         let costEach = parseFloat(entry.cost);
         const amount = parseFloat(entry.amount) || 0;
+
+        // --- Update summary totals based on type ---
+        if (entry.type === 'Added') {
+            totalAdded += amount;
+        } else if (entry.type === 'Cut') {
+            totalCut += amount;
+        } else if (entry.type === 'Adjusted') {
+            if (amount > 0) {
+                totalAdded += amount;
+            } else {
+                totalCut += Math.abs(amount);
+            }
+        }
 
         // 1. If cost wasn't saved (old data), try to find it
         if (isNaN(costEach) || costEach === 0) {
             try {
-                // Extract size from item name, e.g., "T-Shirt (S)" -> "S"
                 const sizeMatch = entry.itemName.match(/\(([^)]+)\)$/);
                 if (sizeMatch && entry.itemCode && currentInventory[entry.itemCode] && currentInventory[entry.itemCode][sizeMatch[1]]) {
                     costEach = parseFloat(currentInventory[entry.itemCode][sizeMatch[1]].cost) || 0;
                 }
             } catch (e) {
                 console.warn("Could not find fallback cost for old transaction:", e);
-                costEach = 0; // Default to 0 if anything fails
+                costEach = 0;
             }
         }
 
+        // --- THIS IS THE FIX ---
         // 2. Check if totalCost was saved (new data), otherwise calculate it
         let totalCost = (entry.totalCost !== undefined && entry.totalCost !== null) ?
             parseFloat(entry.totalCost) :
-            (costEach * amount); // Calculate for old data
+            (entry.type === 'Cut' ? (costEach * amount * -1) : (costEach * amount));
 
         // 3. Add to grand total
         grandTotalCost += (isNaN(totalCost) ? 0 : totalCost);
         // --- END FIX ---
 
+
         const row = document.createElement('tr');
         row.className = (entry.type === 'Added') ? 'log-add' : (entry.type === 'Cut' ? 'log-cut' : 'log-adjust');
+        row.setAttribute('data-barcode', entry.itemCode);
 
+        // UPDATED: Added totalCost cell back
         row.innerHTML = `
             <td>${dateStr}</td>
             <td>${timeStr}</td>
@@ -206,6 +237,7 @@ function renderTable() {
         transactionTableBody.appendChild(row);
     });
 
+    // --- ADDED BACK: The grandTotalCost footer row ---
     const totalRow = document.createElement('tr');
     totalRow.style.fontWeight = 'bold';
     totalRow.style.backgroundColor = '#f8f9fa';
@@ -215,6 +247,22 @@ function renderTable() {
         <td></td>
     `;
     transactionTableBody.appendChild(totalRow);
+    // --- END ADD BACK ---
+
+
+    // --- Update Summary Box text content ---
+    const netChange = totalAdded - totalCut;
+    summaryAddedEl.textContent = totalAdded;
+    summaryCutEl.textContent = totalCut;
+    summaryNetEl.textContent = netChange;
+
+    if (netChange > 0) {
+        summaryNetEl.className = 'summary-value summary-add';
+    } else if (netChange < 0) {
+        summaryNetEl.className = 'summary-value summary-cut';
+    } else {
+        summaryNetEl.className = 'summary-value summary-adjust';
+    }
 }
 
 
@@ -262,13 +310,14 @@ function renderChart() {
 function exportToCsv() {
     if (filteredTransactions.length === 0) { alert(t('transactions_no_export_data')); return; }
 
+    // UPDATED: Added "Total Cost" back to headers
     const headers = ["Date", "Time", "Item Name", "Type", "Amount", "Cost (ea.)", "Total Cost", "New Stock Level"];
     const csvRows = [headers.join(",")];
 
     const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
     const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
 
-    // We re-use the same logic from renderTable to get the correct costs
+
     filteredTransactions.forEach(entry => {
         const entryDate = new Date(entry.timestamp);
         const dateStr = entryDate.toLocaleDateString(undefined, dateOptions);
@@ -286,10 +335,13 @@ function exportToCsv() {
                 costEach = 0;
             }
         }
+
+        // --- ALSO FIXED HERE FOR THE EXPORT ---
         const totalCost = (entry.totalCost !== undefined && entry.totalCost !== null) ?
             parseFloat(entry.totalCost) :
-            (costEach * amount);
+            (entry.type === 'Cut' ? (costEach * amount * -1) : (costEach * amount));
 
+        // UPDATED: Added totalCost back to values
         const values = [
             `"${dateStr}"`,
             `"${timeStr}"`,
@@ -303,7 +355,9 @@ function exportToCsv() {
         csvRows.push(values.join(","));
     });
 
-    const csvString = csvRows.join("\n");
+    // Add the UTF-8 BOM character at the beginning for Thai encoding in Excel
+    const csvString = "\uFEFF" + csvRows.join("\n");
+
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -317,6 +371,20 @@ function exportToCsv() {
 
 
 // --- Event Listeners ---
+
+// NEW: Handle clicking on a row to see item history
+transactionTableBody.addEventListener('click', (event) => {
+    // Find the closest 'tr' (table row) element that was clicked
+    const row = event.target.closest('tr');
+
+    // Check if we found a row and if it has a barcode
+    if (row && row.dataset.barcode) {
+        const barcode = row.dataset.barcode;
+        navigateTo(`/item-history/${barcode}`);
+    }
+});
+
+searchCategory.addEventListener('change', handleCategoryChange);
 searchCategory.addEventListener('change', handleCategoryChange);
 searchNameInput.addEventListener('input', () => {
     applyFilter();

@@ -142,10 +142,19 @@ body {
 
 /* Table Styles */
 
+#table-container {
+    max-height: 400px;
+    /* Or any height you like */
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-top: none;
+    /* The header row will act as the top border */
+}
+
 #transactionTable {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 10px;
+    /* margin-top: 10px; */
 }
 
 #transactionTable th,
@@ -278,6 +287,65 @@ body {
 #transactionTable th:nth-child(8),
 #transactionTable td:nth-child(8) {
     text-align: right;
+}
+
+
+/* --- END NEW --- */
+
+
+/* Add these new styles for the summary box */
+
+#summary-box {
+    display: flex;
+    justify-content: space-around;
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 1px solid #e9ecef;
+}
+
+.summary-item {
+    text-align: center;
+}
+
+.summary-label {
+    display: block;
+    font-size: 0.9em;
+    color: #6c757d;
+    font-weight: bold;
+}
+
+.summary-value {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.summary-add {
+    color: green;
+}
+
+.summary-cut {
+    color: #b92100;
+}
+
+.summary-adjust {
+    color: #007bff;
+}
+
+
+/* --- End Summary Box --- */
+
+
+/* --- NEW: Clickable Row Style --- */
+
+#transactionTableBody tr[data-barcode] {
+    cursor: pointer;
+}
+
+#transactionTableBody tr[data-barcode]:hover {
+    background-color: #e9ecef;
+    /* Use the existing hover color */
 }
 
 

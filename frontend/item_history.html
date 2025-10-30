@@ -108,7 +108,7 @@
             document.querySelectorAll('a[data-href]').forEach(a => {
                 const data = a.getAttribute('data-href');
                 if (!data) return;
-                a.setAttribute('href', location.protocol === 'file:' ? data.replace(/^\//, '') : data);
+                a.setAttribute('href', data);
             });
 
             // when under file://, rewrite server-style links to local filenames

@@ -6,7 +6,6 @@
     "nav_transactions": "ธุรกรรม",
     "nav_reports": "รายงาน",
     "nav_categories": "หมวดหมู่",
-
     "page_title_categories": "จัดการหมวดหมู่",
     "categories_title": "หมวดหมู่สินค้า",
     "categories_add_new": "เพิ่มหมวดหมู่ใหม่",
@@ -14,7 +13,6 @@
     "categories_add_button": "เพิ่มหมวดหมู่",
     "categories_loading": "กำลังโหลดหมวดหมู่...",
     "error_category_name_empty": "ชื่อหมวดหมู่ห้ามเว้นว่าง",
-
     "page_title_inventory": "ระบบคลังสินค้าบาร์โค้ด",
     "inventory_clear_log_button": "ล้าง",
     "inventory_placeholder": "รอการสแกน...",
@@ -39,7 +37,6 @@
     "modal_delete_text_post": "อย่างถาวร?",
     "modal_delete_cancel": "ยกเลิก",
     "modal_delete_confirm": "ยืนยันการลบ",
-
     "page_title_add_product": "เพิ่มสินค้าใหม่",
     "product_add_title": "เพิ่มสินค้าใหม่",
     "product_add_name_label": "สต็อกบาร์โค้ด:",
@@ -52,14 +49,12 @@
     "product_created_success": "สร้างสินค้าแล้ว!",
     "product_created_new_barcode": "บาร์โค้ดใหม่:",
     "product_created_save_png": "บันทึกเป็น PNG",
-
     "page_title_edit_product": "แก้ไขสินค้า",
     "product_edit_title": "แก้ไขสินค้า",
     "product_edit_barcode_label": "บาร์โค้ด (อ่านอย่างเดียว):",
     "product_edit_name_label": "สต็อกบาร์โค้ด:",
     "product_edit_button": "อัปเดตสต็อกบาร์โค้ด",
     "success_product_updated": "✅ อัปเดตชื่อสินค้าเรียบร้อยแล้ว!",
-
     "page_title_item_history": "ประวัติสินค้า",
     "history_back_link": "&larr; กลับไปรายการสินค้า",
     "history_title": "ประวัติธุรกรรม",
@@ -75,7 +70,6 @@
     "history_loading": "กำลังโหลดประวัติ...",
     "history_no_transactions_date": "ไม่พบธุรกรรมในวันที่เลือก",
     "history_no_transactions_item": "ไม่พบประวัติธุรกรรมสำหรับสินค้านี้",
-
     "page_title_item_list": "รายการสินค้า",
     "list_title": "รายการสินค้า",
     "list_table_barcode": "บาร์โค้ด (1-12)",
@@ -85,7 +79,6 @@
     "list_table_history": "ประวัติ",
     "list_table_download_png": "PNG",
     "list_loading": "กำลังโหลด...",
-
     "page_title_reports": "รายงาน",
     "reports_title": "รายงาน",
     "reports_most_active_title": "สินค้าที่มีการเคลื่อนไหวมากที่สุด",
@@ -96,7 +89,6 @@
     "reports_table_count": "จำนวนธุรกรรม",
     "reports_loading": "กำลังโหลดรายงาน...",
     "reports_no_data": "ไม่มีข้อมูลธุรกรรมสำหรับสร้างรายงาน",
-
     "page_title_transactions": "บันทึกธุรกรรม",
     "transactions_title": "ประวัติธุรกรรม",
     "transactions_search_by": "ค้นหาโดย:",
@@ -118,10 +110,8 @@
     "transactions_graph_legend_out": "สต็อกที่ตัด",
     "transactions_no_match": "ไม่พบธุรกรรมที่ตรงกัน",
     "transactions_no_export_data": "ไม่มีข้อมูลสำหรับส่งออก",
-
     "toast_product_deleted": "ลบสินค้าเรียบร้อยแล้ว",
     "confirm_clear_log": "คุณแน่ใจหรือไม่ว่าต้องการล้างบันทึกธุรกรรมทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้",
-
     "error_generic": "ข้อผิดพลาด: {message}",
     "error_load_data": "ไม่สามารถโหลดข้อมูลได้ กรุณาตรวจสอบ logs",
     "error_delete_product": "ไม่สามารถลบสินค้า: {message}",
@@ -154,7 +144,6 @@
     "product_edit_size_costs_desc": "กำหนดราคาทุนสำหรับแต่ละขนาด หากเว้นไว้เป็น 0 ระบบจะใช้ 'ราคาทุน (เริ่มต้น)' เมื่อขนาดนี้ถูกเพิ่มเข้าสต็อกครั้งแรก",
     "product_edit_save_button": "บันทึกการเปลี่ยนแปลงทั้งหมด",
     "transactions_table_cost": "ทุน (ชิ้น)",
-    "transactions_table_total_cost": "ทุนทั้งหมด",
     "categories_edit_button": "แก้ไข",
     "categories_delete_button": "ลบ",
     "modal_edit_title": "แก้ไขหมวดหมู่",
@@ -169,5 +158,18 @@
     "reports_table_item_size": "สินค้า (ขนาด)",
     "reports_table_current_stock": "สต็อกปัจจุบัน",
     "reports_table_cost_ea": "ทุน (ชิ้น)",
-    "reports_table_total_value": "มูลค่ารวม"
+    "reports_table_total_value": "มูลค่ารวม",
+    "reports_search_placeholder": "ค้นหา...",
+    "reports_search_by": "กรองตาม:",
+    "reports_search_all": "ทั้งหมด",
+    "reports_search_name": "ชื่อสินค้า",
+    "reports_search_category": "หมวดหมู่",
+    "reports_search_size": "ขนาด",
+    "reports_clear_filter": "ล้าง",
+    "reports_table_category": "หมวดหมู่",
+    "reports_export_csv": "ส่งออกเป็น CSV",
+    "transactions_summary_added": "สินค้าที่เพิ่ม",
+    "transactions_summary_cut": "สินค้าที่ตัด",
+    "transactions_summary_adjusted": "เปลี่ยนแปลงสุทธิ",
+    "transactions_table_total_cost": "ทุนทั้งหมด"
 }

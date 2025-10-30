@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const app = express();
-const PORT = 3000;
+const PORT = 3001; // <-- This is the only change
 const APP_NAME = 'BarcodeInventorySystem';
 
 // --- 2. File Paths ---

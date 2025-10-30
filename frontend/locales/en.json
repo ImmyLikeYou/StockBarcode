@@ -6,7 +6,6 @@
     "nav_transactions": "Transactions",
     "nav_reports": "Reports",
     "nav_categories": "Categories",
-
     "page_title_categories": "Manage Categories",
     "categories_title": "Product Categories",
     "categories_add_new": "Add New Category",
@@ -38,7 +37,6 @@
     "modal_delete_text_post": "?",
     "modal_delete_cancel": "Cancel",
     "modal_delete_confirm": "Confirm Delete",
-
     "page_title_add_product": "Add New Product",
     "product_add_title": "Add a New Product",
     "product_add_name_label": "Stock Barcode:",
@@ -51,14 +49,12 @@
     "product_created_success": "Product Created!",
     "product_created_new_barcode": "New Barcode:",
     "product_created_save_png": "Save as PNG",
-
     "page_title_edit_product": "Edit Product",
     "product_edit_title": "Edit Product",
     "product_edit_barcode_label": "Barcode (Read-only):",
     "product_edit_name_label": "Stock Barcode:",
     "product_edit_button": "Update Stock Barcode",
     "success_product_updated": "✅ Product name updated successfully!",
-
     "page_title_item_history": "Item History",
     "history_back_link": "&larr; Back to Item List",
     "history_title": "Transaction History",
@@ -74,7 +70,6 @@
     "history_loading": "Loading history...",
     "history_no_transactions_date": "No transactions found for this date.",
     "history_no_transactions_item": "No transaction history found for this item.",
-
     "page_title_item_list": "Item List",
     "list_title": "Product Item List",
     "list_table_barcode": "Barcode (1-12)",
@@ -84,7 +79,6 @@
     "list_table_history": "History",
     "list_table_download_png": "PNG",
     "list_loading": "Loading...",
-
     "page_title_reports": "Reports",
     "reports_title": "Reports",
     "reports_most_active_title": "Most Active Items",
@@ -95,7 +89,6 @@
     "reports_table_count": "Transaction Count",
     "reports_loading": "Loading report...",
     "reports_no_data": "No transaction data available to generate report.",
-
     "page_title_transactions": "Transaction Log",
     "transactions_title": "Transaction History",
     "transactions_search_by": "Search By:",
@@ -117,10 +110,8 @@
     "transactions_graph_legend_out": "Stock Cut",
     "transactions_no_match": "No matching transactions found.",
     "transactions_no_export_data": "No data to export.",
-
     "toast_product_deleted": "Product deleted successfully",
     "confirm_clear_log": "Are you sure you want to clear the entire transaction log? This cannot be undone.",
-
     "error_generic": "Error: {message}",
     "error_load_data": "Could not load data. Check logs.",
     "error_delete_product": "Could not delete product: {message}",
@@ -153,7 +144,6 @@
     "product_edit_size_costs_desc": "Set a specific cost for each size. If left at 0, the 'Default Cost Price' will be used when this size is first added to stock.",
     "product_edit_save_button": "Save All Changes",
     "transactions_table_cost": "Cost (ea.)",
-    "transactions_table_total_cost": "Total Cost",
     "categories_edit_button": "Edit",
     "categories_delete_button": "Delete",
     "modal_edit_title": "Edit Category",
@@ -168,6 +158,18 @@
     "reports_table_item_size": "Item (Size)",
     "reports_table_current_stock": "Current Stock",
     "reports_table_cost_ea": "Cost (ea.)",
-    "reports_table_total_value": "Total Value"
-
+    "reports_table_total_value": "Total Value",
+    "reports_search_placeholder": "Search...",
+    "reports_search_by": "Filter By:",
+    "reports_search_all": "All",
+    "reports_search_name": "Product Name",
+    "reports_search_category": "Category",
+    "reports_search_size": "Size",
+    "reports_clear_filter": "Clear",
+    "reports_table_category": "Category",
+    "reports_export_csv": "Export to CSV",
+    "transactions_summary_added": "Items Added",
+    "transactions_summary_cut": "Items Cut",
+    "transactions_summary_adjusted": "Net Change",
+    "transactions_table_total_cost": "Total Cost"
 }

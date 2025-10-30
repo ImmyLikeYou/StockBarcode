@@ -65,6 +65,22 @@
     <main id="main-content">
         <div class="container">
             <h1 data-i18n-key="transactions_title">Transaction History</h1>
+
+            <div id="summary-box">
+                <div class="summary-item">
+                    <span class="summary-label" data-i18n-key="transactions_summary_added">Items Added:</span>
+                    <span id="summary-added" class="summary-value summary-add">0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label" data-i18n-key="transactions_summary_cut">Items Cut:</span>
+                    <span id="summary-cut" class="summary-value summary-cut">0</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label" data-i18n-key="transactions_summary_adjusted">Net Change:</span>
+                    <span id="summary-net" class="summary-value summary-adjust">0</span>
+                </div>
+            </div>
+
             <div id="controls">
                 <div id="search-area">
                     <label for="searchCategory" data-i18n-key="transactions_search_by">Search By:</label>
@@ -80,25 +96,28 @@
                 </div>
                 <button id="exportButton" data-i18n-key="transactions_export_csv">Export to CSV</button>
             </div>
-            <table id="transactionTable">
-                <thead>
-                    <tr>
-                        <th data-i18n-key="transactions_table_date">Date</th>
-                        <th data-i18n-key="transactions_table_time">Time</th>
-                        <th data-i18n-key="transactions_table_item">Item Name (Size)</th>
-                        <th data-i18n-key="transactions_table_type">Type</th>
-                        <th data-i18n-key="transactions_table_amount">Amount</th>
-                        <th data-i18n-key="transactions_table_cost">Cost (ea.)</th>
-                        <th data-i18n-key="transactions_table_total_cost">Total Cost</th>
-                        <th data-i18n-key="transactions_table_new_stock">New Stock</th>
-                    </tr>
-                </thead>
-                <tbody id="transactionTableBody">
-                    <tr>
-                        <td colspan="8" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
-                    </tr>
-                </tbody>
-            </table>
+
+            <div id="table-container">
+                <table id="transactionTable">
+                    <thead>
+                        <tr>
+                            <th data-i18n-key="transactions_table_date">Date</th>
+                            <th data-i18n-key="transactions_table_time">Time</th>
+                            <th data-i18n-key="transactions_table_item">Item Name (Size)</th>
+                            <th data-i18n-key="transactions_table_type">Type</th>
+                            <th data-i18n-key="transactions_table_amount">Amount</th>
+                            <th data-i18n-key="transactions_table_cost">Cost (ea.)</th>
+                            <th data-i18n-key="transactions_table_total_cost">Total Cost</th>
+                            <th data-i18n-key="transactions_table_new_stock">New Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionTableBody">
+                        <tr>
+                            <td colspan="8" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <div class="container">
             <h2 data-i18n-key="transactions_graph_title">Transaction Graph</h2>

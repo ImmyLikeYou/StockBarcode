@@ -37,9 +37,27 @@
         <div class="container">
             <h2 data-i18n-key="reports_inventory_summary_title">Inventory Value Summary</h2>
             <p data-i18n-key="reports_inventory_summary_desc">Current stock levels, cost per item, and total value of all items in inventory.</p>
+
+            <div id="summary-controls">
+                <div id="search-area">
+                    <label for="summaryFilterCategory" data-i18n-key="reports_search_by">Filter By:</label>
+                    <select id="summaryFilterCategory">
+                        <option value="all" data-i18n-key="reports_search_all">All</option>
+                        <option value="name" data-i18n-key="reports_search_name">Product Name</option>
+                        <option value="size" data-i18n-key="reports_search_size">Size</option>
+                        </select>
+                    <input type="text" id="summarySearchInput" placeholder="Search..." data-i18n-key="reports_search_placeholder" data-i18n-placeholder="true">
+                </div>
+                <div id="button-area">
+                    <button id="summaryClearButton" data-i18n-key="reports_clear_filter">Clear</button>
+                    <button id="summaryExportButton" class="export-btn" data-i18n-key="reports_export_csv">Export to CSV</button>
+                </div>
+            </div>
+
             <table id="inventorySummaryTable">
                 <thead>
                     <tr>
+                        <th data-i18n-key="reports_table_category">Category</th>
                         <th data-i18n-key="reports_table_item_size">Item (Size)</th>
                         <th data-i18n-key="reports_table_current_stock">Current Stock</th>
                         <th data-i18n-key="reports_table_cost_ea">Cost (ea.)</th>
@@ -48,7 +66,7 @@
                 </thead>
                 <tbody id="inventorySummaryTableBody">
                     <tr>
-                        <td colspan="4" style="text-align: center;" data-i18n-key="reports_loading">Loading report...</td>
+                        <td colspan="5" style="text-align: center;" data-i18n-key="reports_loading">Loading report...</td>
                     </tr>
                 </tbody>
             </table>
