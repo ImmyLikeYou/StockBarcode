@@ -1,11 +1,10 @@
-import { loadData, getRouteHref } from './_api.js';
-// 1. Import i18n functions
-import { initializeI18n, setLanguage, t } from './i18n.js';
+import { loadData, getCategories, getRouteHref } from './_api.js'; // --- MODIFIED: Import getCategories
+import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
 
 const itemTableBody = document.getElementById('itemTableBody');
 const tempCanvas = document.getElementById('tempCanvas');
 
-function saveBarcodeAsPng(barcodeValue) { /* ... same PNG generation logic as before ... */
+function saveBarcodeAsPng(barcodeValue) {
     const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     try {
         JsBarcode(tempSvg, barcodeValue, { format: "EAN13", displayValue: true, text: barcodeValue, fontSize: 18, width: 2, height: 100, margin: 10 });
@@ -30,56 +29,69 @@ function saveBarcodeAsPng(barcodeValue) { /* ... same PNG generation logic as be
         img.src = 'data:image/svg+xml;base64,' + window.btoa(svgString);
     } catch (e) {
         console.error("Error generating barcode PNG:", e);
-        // 2. Use translation key for alert
         alert(t('error_generate_png', { message: e.message }));
     }
 }
 
 async function loadProductData() {
     try {
-        const data = await loadData();
+        // --- MODIFIED: Load both products and categories ---
+        const [data, categories] = await Promise.all([
+            loadData(),
+            getCategories()
+        ]);
         const products = data.products;
 
         itemTableBody.innerHTML = '';
 
         for (const barcode in products) {
-            const productName = products[barcode];
+            const product = products[barcode];
+            const productName = product.name;
+            // Find the category name, or use "Default"
+            const categoryName = categories[product.category_id] || categories['cat_0'] || 'N/A';
+
             const newRow = document.createElement('tr');
 
             const barcodeCell = document.createElement('td');
             barcodeCell.textContent = barcode;
             barcodeCell.className = 'barcode-cell';
+
             const nameCell = document.createElement('td');
             nameCell.textContent = productName;
+
+            // --- NEW: Create Category Cell ---
+            const categoryCell = document.createElement('td');
+            categoryCell.textContent = categoryName;
+            // --- END NEW ---
 
             const downloadCell = document.createElement('td');
             downloadCell.className = 'download-cell';
             const downloadBtn = document.createElement('button');
-            // 3. Use translation key for button text
             downloadBtn.textContent = t('list_table_download_png');
             downloadBtn.className = 'download-btn';
             downloadBtn.dataset.barcode = barcode;
             downloadBtn.addEventListener('click', (event) => { saveBarcodeAsPng(event.target.dataset.barcode); });
             downloadCell.appendChild(downloadBtn);
+
             const editCell = document.createElement('td');
             editCell.className = 'edit-cell';
             const editLink = document.createElement('a');
             editLink.setAttribute('href', getRouteHref(`/edit-product/${barcode}`));
-            // 4. Use translation key for button text
             editLink.textContent = t('list_table_edit');
             editLink.className = 'edit-btn';
             editCell.appendChild(editLink);
+
             const historyCell = document.createElement('td');
             historyCell.className = 'history-cell';
             const historyLink = document.createElement('a');
             historyLink.setAttribute('href', getRouteHref(`/item-history/${barcode}`));
-            // 5. Use translation key for button text
             historyLink.textContent = t('list_table_history');
             historyLink.className = 'history-btn';
             historyCell.appendChild(historyLink);
 
             newRow.appendChild(barcodeCell);
             newRow.appendChild(nameCell);
+            newRow.appendChild(categoryCell); // --- NEW: Add cell to row ---
             newRow.appendChild(downloadCell);
             newRow.appendChild(editCell);
             newRow.appendChild(historyCell);
@@ -88,12 +100,12 @@ async function loadProductData() {
 
     } catch (err) {
         console.error('Error loading product data:', err);
-        // 6. Use translation key for error
-        itemTableBody.innerHTML = `<tr><td colspan="5" style="color: red; text-align: center;">${t('error_loading_products')}</td></tr>`;
+        const { key, context } = parseError(err);
+        // --- MODIFIED: Update colspan ---
+        itemTableBody.innerHTML = `<tr><td colspan="6" style="color: red; text-align: center;">${t(key, context) || t('error_loading_products')}</td></tr>`;
     }
 }
 
-// 7. Add language switcher listeners
 // Add language switcher listeners
 const langEnButton = document.getElementById('lang-en');
 if (langEnButton) {
@@ -105,7 +117,7 @@ if (langThButton) {
     langThButton.addEventListener('click', () => setLanguage('th'));
 }
 
-// 8. Create new init function
+// Create new init function
 async function initializeApp() {
     await initializeI18n();
     loadProductData();

@@ -5,6 +5,15 @@
     "nav_item_list": "รายการสินค้า",
     "nav_transactions": "ธุรกรรม",
     "nav_reports": "รายงาน",
+    "nav_categories": "หมวดหมู่",
+
+    "page_title_categories": "จัดการหมวดหมู่",
+    "categories_title": "หมวดหมู่สินค้า",
+    "categories_add_new": "เพิ่มหมวดหมู่ใหม่",
+    "categories_placeholder": "ชื่อหมวดหมู่ใหม่...",
+    "categories_add_button": "เพิ่มหมวดหมู่",
+    "categories_loading": "กำลังโหลดหมวดหมู่...",
+    "error_category_name_empty": "ชื่อหมวดหมู่ห้ามเว้นว่าง",
 
     "page_title_inventory": "ระบบคลังสินค้าบาร์โค้ด",
     "inventory_clear_log_button": "ล้าง",
@@ -134,5 +143,9 @@
     "error_item_not_found": "ข้อผิดพลาด: ไม่พบรหัสสินค้า {itemCode} ในคลัง",
     "error_size_not_found": "ข้อผิดพลาด: ไม่พบขนาด \"{size}\" สำหรับ {item} กรุณาเพิ่ม/ปรับสต็อกก่อน",
     "error_invalid_amount_add_cut": "กรุณาใส่จำนวนที่ถูกต้อง (มากกว่า 0) สำหรับการเพิ่ม/ตัดสต็อก",
-    "error_not_enough_stock": "ข้อผิดพลาด: สต็อกสำหรับ {item} ไม่เพียงพอ เหลือเพียง {stock} ชิ้น"
+    "error_not_enough_stock": "ข้อผิดพลาด: สต็อกสำหรับ {item} ไม่เพียงพอ เหลือเพียง {stock} ชิ้น",
+    "product_add_category_label": "หมวดหมู่:",
+    "inventory_cost_title": "ราคาทุน (ต่อชิ้น):",
+    "error_invalid_cost": "กรุณาใส่ราคาทุนที่ถูกต้อง (มากกว่าหรือเท่ากับ 0) สำหรับการเพิ่ม/ปรับสต็อก",
+    "list_table_category": "หมวดหมู่"
 }

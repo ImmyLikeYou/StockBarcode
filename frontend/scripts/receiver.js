@@ -1,7 +1,7 @@
 import { loadData, processTransaction, deleteProduct, clearLog } from './_api.js';
 import { navigateTo } from './route_handler.js';
-// 1. Import i18n functions
-import { initializeI18n, setLanguage, t } from './i18n.js';
+// --- THIS IS THE FIX: Added getCurrentLanguage ---
+import { initializeI18n, setLanguage, t, parseError, getCurrentLanguage } from './i18n.js';
 
 // --- 1. CONFIGURATION ---
 const LOW_STOCK_THRESHOLD = 10;
@@ -30,7 +30,21 @@ const toastMessageSpan = document.getElementById('toastMessage');
 let toastTimeout = null;
 let scanDebounceTimer = null;
 
+const costInputContainer = document.getElementById('costInputContainer');
+const transactionCostInput = document.getElementById('transactionCostInput');
+const transactionModeRadios = document.querySelectorAll('input[name="transactionMode"]');
+
 // --- 2. DISPLAY FUNCTIONS ---
+
+function updateCostInputVisibility() {
+    const selectedMode = document.querySelector('input[name="transactionMode"]:checked').value;
+    if (selectedMode === 'add' || selectedMode === 'adjust') {
+        costInputContainer.style.display = 'block';
+    } else { // 'cut'
+        costInputContainer.style.display = 'none';
+    }
+}
+
 function showToast(message) {
     if (toastTimeout) { clearTimeout(toastTimeout); }
     toastMessageSpan.textContent = message;
@@ -44,7 +58,7 @@ function showToast(message) {
 function handleDeleteProduct(event) {
     const button = event.target;
     barcodeToDelete = button.dataset.barcode;
-    const productName = itemNames[barcodeToDelete] || 'this product';
+    const productName = itemNames[barcodeToDelete] ? itemNames[barcodeToDelete].name : 'this product';
     itemToDeleteNameSpan.textContent = `"${productName}"`;
     deleteModal.style.display = 'flex';
 }
@@ -55,12 +69,11 @@ async function executeDelete() {
         delete inventoryStock[barcodeToDelete];
         delete itemNames[barcodeToDelete];
         updateInventoryDisplay();
-        // 2. Use translation key for toast
         showToast(t('toast_product_deleted'));
     } catch (err) {
         console.error('Error deleting product:', err);
-        // 3. Use translation key for alert
-        alert(t('error_delete_product', { message: err.message }));
+        const { key, context } = parseError(err);
+        alert(t(key, context));
     } finally {
         deleteModal.style.display = 'none';
         barcodeToDelete = null;
@@ -69,8 +82,11 @@ async function executeDelete() {
 
 function updateInventoryDisplay() {
     inventoryDisplay.innerHTML = '';
+    // --- This line (85) will now work ---
+    const currentLang = getCurrentLanguage();
+
     for (const itemCode in inventoryStock) {
-        const itemName = itemNames[itemCode] || "Unknown Item";
+        const itemName = itemNames[itemCode] ? itemNames[itemCode].name : "Unknown Item";
         const stockLevels = inventoryStock[itemCode];
         const newItemDisplay = document.createElement('li');
         const deleteBtn = document.createElement('button');
@@ -88,15 +104,24 @@ function updateInventoryDisplay() {
         } else {
             const sizeList = document.createElement('ul');
             for (const size in stockLevels) {
-                const stockLevel = stockLevels[size];
+                const stockLevel = stockLevels[size].stock;
+                const costLevel = stockLevels[size].cost || 0;
+                const costString = costLevel.toFixed(2);
+
                 const sizeItem = document.createElement('li');
+
+                const stockText = `${size}: <span>${stockLevel}</span>`;
+                const costText = `<span class="cost-display">(Cost: ${costString})</span>`;
+
                 if (stockLevel === 0) {
                     sizeItem.className = 'out-of-stock';
-                    sizeItem.innerHTML = `${size}: <span>${stockLevel}</span> <span class="out-of-stock-label">(Out of Stock)</span>`;
+                    sizeItem.innerHTML = `${stockText} ${costText} <span class="out-of-stock-label">(Out of Stock)</span>`;
                 } else if (stockLevel < LOW_STOCK_THRESHOLD) {
                     sizeItem.className = 'low-stock';
-                    sizeItem.innerHTML = `${size}: <span>${stockLevel}</span> <span class="low-stock-label">(Low Stock)</span>`;
-                } else { sizeItem.innerHTML = `${size}: <span>${stockLevel}</span>`; }
+                    sizeItem.innerHTML = `${stockText} ${costText} <span class="low-stock-label">(Low Stock)</span>`;
+                } else {
+                    sizeItem.innerHTML = `${stockText} ${costText}`;
+                }
                 sizeList.appendChild(sizeItem);
             }
             newItemDisplay.appendChild(sizeList);
@@ -134,13 +159,11 @@ async function loadAllData() {
         renderSellLog();
     } catch (err) {
         console.error('Error loading data:', err);
-        // 4. Use translation key for alert
         alert(t('error_load_data'));
     }
 }
 
 async function clearTransactionLog() {
-    // 5. Use translation key for confirm
     if (confirm(t('confirm_clear_log'))) {
         try {
             await clearLog();
@@ -148,7 +171,6 @@ async function clearTransactionLog() {
             renderSellLog();
         } catch (err) {
             console.error('Error clearing log:', err);
-            // 6. Use translation key for alert
             alert(t('error_clear_log'));
         }
     }
@@ -167,14 +189,18 @@ async function processScan() {
     const transactionMode = document.querySelector('input[name="transactionMode"]:checked').value;
     const transactionSize = document.querySelector('input[name="transactionSize"]:checked').value;
     const amountOrNewStock = parseInt(transactionAmountInput.value, 10);
+    const cost = parseFloat(transactionCostInput.value) || 0;
+
     let errorOccurred = false;
 
-    // 7. Use translation keys for toasts
     if ((transactionMode === 'add' || transactionMode === 'cut') && (!amountOrNewStock || amountOrNewStock < 1)) {
         showToast(t('error_invalid_amount_add_cut'));
         errorOccurred = true;
     } else if (transactionMode === 'adjust' && (isNaN(amountOrNewStock) || amountOrNewStock < 0)) {
-        showToast(t('error_invalid_amount_add_cut')); // Same error key can be reused
+        showToast(t('error_invalid_amount_add_cut'));
+        errorOccurred = true;
+    } else if ((transactionMode === 'add' || transactionMode === 'adjust') && (isNaN(cost) || cost < 0)) {
+        showToast(t('error_invalid_cost'));
         errorOccurred = true;
     } else if (!itemNames.hasOwnProperty(lookupValue)) {
         const newLogItem = document.createElement('li');
@@ -187,34 +213,43 @@ async function processScan() {
 
     if (!errorOccurred) {
         try {
-            const payload = { lookupValue, amount: amountOrNewStock, mode: transactionMode, size: transactionSize };
+            const payload = {
+                lookupValue,
+                amount: amountOrNewStock,
+                mode: transactionMode,
+                size: transactionSize,
+                cost: cost
+            };
+
             const result = await processTransaction(payload);
-            const { itemCode, size, newStockLevel } = result.updatedItem;
+            const { itemCode, size, newStockLevel, newCost } = result.updatedItem;
+
             if (!inventoryStock[itemCode]) inventoryStock[itemCode] = {};
-            inventoryStock[itemCode][size] = newStockLevel;
+            inventoryStock[itemCode][size] = {
+                stock: newStockLevel,
+                cost: newCost
+            };
+
             sellLogData.push(result.newTransaction);
             updateInventoryDisplay();
             renderSellLog();
             const newLogItem = document.createElement('li');
-            newLogItem.textContent = result.message; // Backend message is now just "OK: ..."
+            newLogItem.textContent = result.message;
             if (transactionMode === 'add') newLogItem.className = 'match-add';
             else if (transactionMode === 'cut') newLogItem.className = 'match-cut';
             else newLogItem.className = 'match-adjust';
             scanLog.append(newLogItem);
             scanLog.scrollTop = scanLog.scrollHeight;
         } catch (err) {
-            // 8. Handle translated errors from backend
             console.error('Error processing transaction:', err);
-
-            // Use the new error parser
             const { key, context } = parseError(err);
             const translatedError = t(key, context);
 
             if (key === 'error_not_enough_stock') {
-                showToast(translatedError); // Show in toast
+                showToast(translatedError);
             } else {
                 const newLogItem = document.createElement('li');
-                newLogItem.textContent = translatedError; // Show in log
+                newLogItem.textContent = translatedError;
                 newLogItem.className = 'error';
                 scanLog.append(newLogItem);
                 scanLog.scrollTop = scanLog.scrollHeight;
@@ -223,16 +258,19 @@ async function processScan() {
         }
     }
     barcodeInput.value = '';
+    barcodeInput.focus();
 }
-
-function validationToastShown(mode, amount) { return ((mode === 'add' || mode === 'cut') && (!amount || amount < 1)) || (mode === 'adjust' && (isNaN(amount) || amount < 0)); }
 
 // --- 5. EVENT LISTENERS ---
 barcodeInput.addEventListener('input', () => {
     clearTimeout(scanDebounceTimer);
     scanDebounceTimer = setTimeout(processScan, 100);
 });
-scanForm.addEventListener('submit', (event) => { event.preventDefault(); });
+scanForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearTimeout(scanDebounceTimer);
+    processScan();
+});
 filterButton.addEventListener('click', () => {
     const dateValue = dateFilter.value;
     if (dateValue) {
@@ -259,7 +297,10 @@ window.addEventListener('click', (event) => {
     }
 });
 
-// 9. Add language switcher listeners
+transactionModeRadios.forEach(radio => {
+    radio.addEventListener('change', updateCostInputVisibility);
+});
+
 // Add language switcher listeners
 const langEnButton = document.getElementById('lang-en');
 if (langEnButton) {
@@ -273,13 +314,10 @@ if (langThButton) {
 
 
 // --- 6. INITIALIZE ---
-// 10. Create new init function
 async function initializeApp() {
-    // Wait for translations to load
     await initializeI18n();
-    // Then load the rest of the app data
+    updateCostInputVisibility();
     loadAllData();
 }
 
-// Call the new initializer
 initializeApp();

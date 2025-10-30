@@ -4,8 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n-key="page_title_edit_product">Edit Product</title>
-    <link rel="stylesheet" data-href="/styles/edit_product.css">
+    <title data-i18n-key="page_title_categories">Manage Categories</title>
+    <link rel="stylesheet" data-href="/styles/categories.css">
     <script>
         (function() {
             const link = document.querySelector('link[data-href]');
@@ -14,7 +14,6 @@
             link.setAttribute('href', location.protocol === 'file:' ? href.replace(/^\//, '') : href);
         })();
     </script>
-    <script type="module" data-src="/scripts/route_handler.js"></script>
 </head>
 
 <body>
@@ -27,8 +26,8 @@
         <ul>
             <li><a href="barcode_receiver.html" data-i18n-key="nav_inventory">📊 Inventory</a></li>
             <li><a href="/add-product" data-i18n-key="nav_add_product">➕ Add Product</a></li>
-            <li><a href="/item-list" class="active" data-i18n-key="nav_item_list">📝 Item List</a></li>
-            <li><a href="/categories" data-i18n-key="nav_categories">🗂️ Categories</a></li>
+            <li><a href="/item-list" data-i18n-key="nav_item_list">📝 Item List</a></li>
+            <li><a href="/categories" class="active" data-i18n-key="nav_categories">🗂️ Categories</a></li>
             <li><a href="/transactions" data-i18n-key="nav_transactions">📈 Transactions</a></li>
             <li><a href="/reports" data-i18n-key="nav_reports">📄 Reports</a></li>
         </ul>
@@ -36,24 +35,24 @@
 
     <main id="main-content">
         <div id="container">
-            <h1 data-i18n-key="product_edit_title">Edit Product</h1>
-            <form id="editProductForm">
+            <h1 data-i18n-key="categories_title">Product Categories</h1>
+
+            <form id="addCategoryForm">
+                <h2 data-i18n-key="categories_add_new">Add New Category</h2>
                 <div>
-                    <label for="productBarcode" data-i18n-key="product_edit_barcode_label">Barcode (Read-only):</label>
-                    <input type="text" id="productBarcode" value="" readonly>
+                    <input type="text" id="categoryName" placeholder="New category name..." data-i18n-key="categories_placeholder" data-i18n-placeholder="true" required>
+                    <button type="submit" data-i18n-key="categories_add_button">Add Category</button>
                 </div>
-                <div>
-                    <label for="productName" data-i18n-key="product_edit_name_label">Stock Barcode:</label>
-                    <input type="text" id="productName" value="" required>
-                </div>
-                <button type="submit" data-i18n-key="product_edit_button">Update Stock Barcode</button>
+                <p id="errorMessage"></p>
             </form>
-            <div id="message"></div>
+
+            <ul id="categoryList">
+                <li data-i18n-key="categories_loading">Loading categories...</li>
+            </ul>
         </div>
     </main>
 
-    <script type="module" data-src="/scripts/edit_product.js"></script>
-
+    <script type="module" data-src="/scripts/categories.js"></script>
     <script>
         (function() {
             // set script src attributes
@@ -81,7 +80,7 @@
                 '/item-history': 'item_history.html',
                 '/transactions': 'transactions.html',
                 '/reports': 'reports.html',
-                '/categories': 'categories.html'
+                '/categories': 'categories.html' // <-- Added new route
             };
             document.querySelectorAll('a[href^="/"]').forEach(a => {
                 const href = a.getAttribute('href');

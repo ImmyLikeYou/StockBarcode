@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const DATA_FILES = ['inventory.json', 'products.json', 'transactions.json'];
+const DATA_FILES = ['inventory.json', 'products.json', 'transactions.json', 'categories.json'];
 const SOURCE_DIR = path.join(process.env.APPDATA || process.env.HOME, '.barcode-inventory');
 const TARGET_DIR = path.join(__dirname, '..', 'app-data');
 

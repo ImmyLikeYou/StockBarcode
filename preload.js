@@ -9,4 +9,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearLog: () => ipcRenderer.invoke('clear-log'),
     getProduct: (barcode) => ipcRenderer.invoke('get-product', barcode), // For edit page
     updateProduct: (args) => ipcRenderer.invoke('update-product', args), // For edit page
+
+    // --- NEW ---
+    getCategories: () => ipcRenderer.invoke('get-categories'),
+    addCategory: (categoryName) => ipcRenderer.invoke('add-category', categoryName)
 });

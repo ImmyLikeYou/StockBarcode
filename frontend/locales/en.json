@@ -5,7 +5,15 @@
     "nav_item_list": "Item List",
     "nav_transactions": "Transactions",
     "nav_reports": "Reports",
+    "nav_categories": "Categories",
 
+    "page_title_categories": "Manage Categories",
+    "categories_title": "Product Categories",
+    "categories_add_new": "Add New Category",
+    "categories_placeholder": "New category name...",
+    "categories_add_button": "Add Category",
+    "categories_loading": "Loading categories...",
+    "error_category_name_empty": "Category name cannot be empty.",
     "page_title_inventory": "Barcode Inventory System",
     "inventory_clear_log_button": "Clear",
     "inventory_placeholder": "Waiting for scan...",
@@ -134,5 +142,9 @@
     "error_item_not_found": "Error: Item code {itemCode} not found in inventory.",
     "error_size_not_found": "Error: Size \"{size}\" not found for {item}. Add/Adjust stock first.",
     "error_invalid_amount_add_cut": "Please enter a valid amount > 0 for Add/Cut.",
-    "error_not_enough_stock": "Error: Not enough stock for {item}. Only {stock} left."
+    "error_not_enough_stock": "Error: Not enough stock for {item}. Only {stock} left.",
+    "product_add_category_label": "Category:",
+    "inventory_cost_title": "Cost Price (per item):",
+    "error_invalid_cost": "Please enter a valid cost >= 0 for Add/Adjust.",
+    "list_table_category": "Category"
 }

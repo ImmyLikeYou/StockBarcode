@@ -6,94 +6,91 @@ const path = require('path');
 const os = require('os');
 const app = express();
 const PORT = 3000;
-// --- NEW: Define an application name for the folder ---
 const APP_NAME = 'BarcodeInventorySystem';
 
 // --- 2. File Paths ---
 const INVENTORY_PATH = getDataFilePath('inventory.json');
 const TRANSACTIONS_PATH = getDataFilePath('transactions.json');
 const PRODUCTS_PATH = getDataFilePath('products.json');
+const CATEGORIES_PATH = getDataFilePath('categories.json');
 
 console.log('Using data files:');
 console.log('  INVENTORY_PATH ->', INVENTORY_PATH);
 console.log('  TRANSACTIONS_PATH ->', TRANSACTIONS_PATH);
 console.log('  PRODUCTS_PATH ->', PRODUCTS_PATH);
+console.log('  CATEGORIES_PATH ->', CATEGORIES_PATH);
 
 // --- 3. Middleware ---
 app.use(express.json());
 app.use(cors());
-// 1. Serve the new locales directory
 app.use('/locales', express.static(path.join(__dirname, 'frontend/locales')));
-app.use(express.static(path.join(__dirname, 'frontend'))); // Serves all files in /frontend
+app.use(express.static(path.join(__dirname, 'frontend')));
 
 // --- 4. Helper Functions ---
 function getAppDataPath() {
     const platform = os.platform();
     let basePath;
-
-    if (platform === 'win32') { // Windows
+    if (platform === 'win32') {
         basePath = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-    } else if (platform === 'darwin') { // macOS
+    } else if (platform === 'darwin') {
         basePath = path.join(os.homedir(), 'Library', 'Application Support');
-    } else { // Linux and other Unix-like
+    } else {
         basePath = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
     }
-
-    // Create a subfolder for your application
     return path.join(basePath, APP_NAME);
 }
-// --- Helper to get the correct path, whether running from source or packaged ---
+
 function ensureFileExists(filePath, defaultContent) {
     if (!fs.existsSync(filePath)) {
         console.log(`Creating initial data file: ${filePath}`);
         fs.writeFileSync(filePath, defaultContent);
     }
 }
+
 ensureFileExists(INVENTORY_PATH, '{}');
 ensureFileExists(TRANSACTIONS_PATH, '[]');
 ensureFileExists(PRODUCTS_PATH, '{}');
+ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
 
 function getDataFilePath(filename) {
-    // Prefer a local ./app-data folder when present (useful for development).
     const localDataDir = path.join(__dirname, 'app-data');
     if (fs.existsSync(localDataDir)) {
         return path.join(localDataDir, filename);
     }
-
-    const appDataDir = getAppDataPath(); // Get e.g., C:\Users\User\AppData\Roaming\BarcodeInventorySystem
-    const dataDir = path.join(appDataDir, 'app-data'); // Add our subfolder
-
-    // Create the necessary directories if they don't exist
+    const appDataDir = getAppDataPath();
+    const dataDir = path.join(appDataDir, 'app-data');
     if (!fs.existsSync(dataDir)) {
         fs.mkdirSync(dataDir, { recursive: true });
         console.log(`Created application data directory: ${dataDir}`);
     }
-
     return path.join(dataDir, filename);
 }
 
-function getDataPath(filename) {
-    // process.pkg is set when running inside a pkg executable
-    const basePath = process.pkg ? path.dirname(process.execPath) : __dirname;
-    const dataDir = path.join(basePath, 'app-data');
-
-    // Create the app-data directory next to the executable if it doesn't exist
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir);
+// --- MODIFIED loadFile FUNCTION ---
+function loadFile(filePath) {
+    const rawData = fs.readFileSync(filePath);
+    if (rawData.length === 0) { // File is empty
+        return filePath.endsWith('transactions.json') ? [] : {};
     }
 
-    return path.join(dataDir, filename);
-}
+    try {
+        const data = JSON.parse(rawData);
 
-function loadFile(filePath) {
-    // Ensure file exists before reading (use the specific defaults)
-    if (filePath.endsWith('inventory.json')) ensureFileExists(filePath, '{}');
-    else if (filePath.endsWith('transactions.json')) ensureFileExists(filePath, '[]');
-    else if (filePath.endsWith('products.json')) ensureFileExists(filePath, '{}');
+        // --- THIS IS THE FIX ---
+        // If we expect an array but get an object (or null/string/etc.), return an empty array.
+        if (filePath.endsWith('transactions.json') && !Array.isArray(data)) {
+            console.warn(`Warning: ${filePath} was corrupted (not an array). Resetting to [].`);
+            return []; // Force it to be an array
+        }
+        // --- END FIX ---
 
-    const rawData = fs.readFileSync(filePath);
-    return rawData.length === 0 ? (filePath.endsWith('transactions.json') ? [] : {}) : JSON.parse(rawData);
+        return data;
+    } catch (err) {
+        console.error(`Error reading ${filePath}:`, err);
+        return filePath.endsWith('transactions.json') ? [] : {};
+    }
 }
+// --- END MODIFICATION ---
 
 function saveFile(filePath, data) {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
@@ -105,15 +102,12 @@ function saveFile(filePath, data) {
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'barcode_receiver.html'));
 });
-
 app.get('/add-product', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'add_product.html'));
 });
-
 app.get('/item-list', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'item_list.html'));
 });
-
 app.get('/transactions', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'transactions.html'));
 });
@@ -125,7 +119,6 @@ app.get('/item-history/:barcode', (req, res) => {
         res.status(500).send('Server Error');
     }
 });
-// Serve the "Edit Product" page as static HTML
 app.get('/edit-product/:barcode', (req, res) => {
     try {
         res.sendFile(path.join(__dirname, 'frontend', 'edit_product.html'));
@@ -134,25 +127,29 @@ app.get('/edit-product/:barcode', (req, res) => {
         res.status(500).send('Server Error');
     }
 });
+app.get('/reports', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend', 'reports.html'));
+});
+app.get('/categories', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend', 'categories.html'));
+});
+
+
+// API Routes
 app.put('/api/product/:barcode', (req, res) => {
     try {
         const { barcode } = req.params;
-        const { productName } = req.body; // Get new name from request body
+        const { productName } = req.body;
 
         if (!productName) {
-            // 2. Send error key
             return res.status(400).json({ message: 'error_name_empty' });
         }
-
         const products = loadFile(PRODUCTS_PATH);
-
         if (!products[barcode]) {
-            // 3. Send error key
             return res.status(404).json({ message: 'error_product_not_found' });
         }
 
-        // Update the name
-        products[barcode] = productName;
+        products[barcode].name = productName;
         saveFile(PRODUCTS_PATH, products);
 
         res.status(200).json({ message: 'Product updated successfully', updatedProduct: { barcode, name: productName } });
@@ -162,25 +159,20 @@ app.put('/api/product/:barcode', (req, res) => {
         res.status(500).json({ message: 'Server error updating product.' });
     }
 });
-app.get('/reports', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'reports.html'));
-});
 
-// API: get product details by barcode
 app.get('/api/product/:barcode', (req, res) => {
     try {
         const { barcode } = req.params;
         const products = loadFile(PRODUCTS_PATH);
-        const productName = products[barcode];
-        // 4. Send error key
-        if (!productName) return res.status(404).json({ message: 'error_product_not_found' });
-        res.json({ barcode, name: productName });
+        const product = products[barcode];
+        if (!product) return res.status(404).json({ message: 'error_product_not_found' });
+        res.json({ barcode, name: product.name });
     } catch (err) {
         console.error('Error fetching product:', err);
         res.status(500).json({ message: 'Server error' });
     }
 });
-// API Route: /api/data
+
 app.get('/api/data', (req, res) => {
     try {
         const inventory = loadFile(INVENTORY_PATH);
@@ -193,12 +185,38 @@ app.get('/api/data', (req, res) => {
     }
 });
 
-// API Route: /api/product (POST - Create)
+app.get('/api/categories', (req, res) => {
+    try {
+        const categories = loadFile(CATEGORIES_PATH);
+        res.json(categories);
+    } catch (err) {
+        console.error('Error loading categories:', err);
+        res.status(500).json({ message: 'Error loading categories.' });
+    }
+});
+
+app.post('/api/category', (req, res) => {
+    try {
+        const { categoryName } = req.body;
+        if (!categoryName) {
+            return res.status(400).json({ message: 'error_category_name_empty' });
+        }
+        const categories = loadFile(CATEGORIES_PATH);
+        const newId = `cat_${Date.now()}`;
+        categories[newId] = categoryName;
+        saveFile(CATEGORIES_PATH, categories);
+        res.status(201).json({ id: newId, name: categoryName });
+    } catch (err) {
+        console.error('Server error creating category:', err);
+        res.status(500).json({ message: 'Server error creating category.' });
+    }
+});
+
+
 app.post('/api/product', (req, res) => {
     try {
-        const { productName, principalCode, typeCode } = req.body;
+        const { productName, principalCode, typeCode, category_id } = req.body;
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
-            // 5. Send error key
             return res.status(400).json({ message: 'error_invalid_data' });
         }
 
@@ -208,12 +226,14 @@ app.post('/api/product', (req, res) => {
         const newBarcode = `${principalCode}${typeCode}${newId}`;
 
         if (products[newBarcode]) {
-            // 6. Send error key
             return res.status(500).json({ message: 'error_barcode_collision' });
         }
 
-        products[newBarcode] = productName;
-        inventory[newBarcode] = {}; // Create empty object for sizes
+        products[newBarcode] = {
+            name: productName,
+            category_id: category_id || 'cat_0'
+        };
+        inventory[newBarcode] = {};
 
         saveFile(PRODUCTS_PATH, products);
         saveFile(INVENTORY_PATH, inventory);
@@ -225,7 +245,6 @@ app.post('/api/product', (req, res) => {
     }
 });
 
-// API Route: /api/product/:barcode (DELETE)
 app.delete('/api/product/:barcode', (req, res) => {
     try {
         const { barcode } = req.params;
@@ -247,7 +266,6 @@ app.delete('/api/product/:barcode', (req, res) => {
             saveFile(INVENTORY_PATH, inventory);
             res.status(200).json({ message: 'Product deleted successfully' });
         } else {
-            // 7. Send error key
             res.status(404).json({ message: 'error_product_not_found' });
         }
     } catch (err) {
@@ -256,23 +274,25 @@ app.delete('/api/product/:barcode', (req, res) => {
     }
 });
 
-// API Route: /api/transaction (POST)
 app.post('/api/transaction', (req, res) => {
-    const { lookupValue, amount, mode, size } = req.body;
+    const { lookupValue, amount, mode, size, cost } = req.body;
+
     if (!lookupValue || isNaN(amount) || !mode || !size ||
         ((mode === 'add' || mode === 'cut') && amount < 1) ||
         (mode === 'adjust' && amount < 0)) {
-        // 8. Send error key
         return res.status(400).json({ message: 'error_invalid_data' });
     }
+    if ((mode === 'add' || mode === 'adjust') && (isNaN(cost) || cost < 0)) {
+        return res.status(400).json({ message: 'error_invalid_cost' });
+    }
+
     try {
         const inventory = loadFile(INVENTORY_PATH);
         const transactions = loadFile(TRANSACTIONS_PATH);
         const products = loadFile(PRODUCTS_PATH);
-        const itemName = products[lookupValue] || "Unknown Item";
+        const itemName = products[lookupValue] ? products[lookupValue].name : "Unknown Item";
 
         if (!inventory.hasOwnProperty(lookupValue)) {
-            // 9. Send error key and context
             return res.status(404).json({
                 message: 'error_item_not_found',
                 context: { itemCode: lookupValue }
@@ -280,9 +300,8 @@ app.post('/api/transaction', (req, res) => {
         }
         if (!inventory[lookupValue].hasOwnProperty(size)) {
             if (mode === 'add' || mode === 'adjust') {
-                inventory[lookupValue][size] = 0;
+                inventory[lookupValue][size] = { stock: 0, cost: 0 };
             } else {
-                // 10. Send error key and context
                 return res.status(404).json({
                     message: 'error_size_not_found',
                     context: { size: size, item: itemName }
@@ -290,23 +309,20 @@ app.post('/api/transaction', (req, res) => {
             }
         }
 
-        let currentStock = inventory[lookupValue][size]; // Get current stock
+        let currentStock = inventory[lookupValue][size].stock;
         let newStock;
         let logType;
         let transactionAmount = amount;
-        let message; // Define message variable outside the if/else
+        let message;
 
         if (mode === 'cut') {
-            // --- NEW CHECK ---
             if (currentStock < amount) {
-                // 11. Send error key and context
                 return res.status(400).json({
                     message: 'error_not_enough_stock',
                     errorType: 'INSUFFICIENT_STOCK',
                     context: { item: `${itemName} (${size})`, stock: currentStock }
                 });
             }
-            // --- END NEW CHECK ---
             newStock = currentStock - amount;
             logType = "Cut";
             message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
@@ -321,7 +337,17 @@ app.post('/api/transaction', (req, res) => {
             message = `OK: ${logType} ${itemName} (${size}) stock to ${newStock}.`;
         }
 
-        inventory[lookupValue][size] = newStock; // Update the stock
+        let newCost;
+        if (mode === 'add' || mode === 'adjust') {
+            newCost = cost;
+        } else { // 'cut'
+            newCost = inventory[lookupValue][size].cost || 0;
+        }
+
+        inventory[lookupValue][size] = {
+            stock: newStock,
+            cost: newCost
+        };
 
         const newTransaction = {
             timestamp: new Date().toISOString(),
@@ -337,9 +363,9 @@ app.post('/api/transaction', (req, res) => {
         saveFile(TRANSACTIONS_PATH, transactions);
 
         res.status(200).json({
-            message: message, // This simple OK message is fine for the quick log
+            message: message,
             newTransaction: newTransaction,
-            updatedItem: { itemCode: lookupValue, size: size, newStockLevel: newStock }
+            updatedItem: { itemCode: lookupValue, size: size, newStockLevel: newStock, newCost: newCost }
         });
     } catch (err) {
         console.error('Error processing transaction:', err);
@@ -347,7 +373,6 @@ app.post('/api/transaction', (req, res) => {
     }
 });
 
-// API Route: /api/log (DELETE)
 app.delete('/api/log', (req, res) => {
     try {
         saveFile(TRANSACTIONS_PATH, []);

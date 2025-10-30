@@ -23,18 +23,32 @@ function ensureFileExists(filePath, defaultContent) {
     if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, defaultContent);
 }
 
+// --- MODIFIED loadFile FUNCTION ---
 function loadFile(filePath) {
     ensureFileExists(filePath, filePath.endsWith('transactions.json') ? '[]' : '{}');
     try {
         const rawData = fs.readFileSync(filePath);
-        return rawData.length === 0 ?
-            (filePath.endsWith('transactions.json') ? [] : {}) :
-            JSON.parse(rawData);
+        if (rawData.length === 0) { // File is empty
+            return filePath.endsWith('transactions.json') ? [] : {};
+        }
+
+        const data = JSON.parse(rawData);
+
+        // --- THIS IS THE FIX ---
+        // If we expect an array but get an object (or null/string/etc.), return an empty array.
+        if (filePath.endsWith('transactions.json') && !Array.isArray(data)) {
+            console.warn(`Warning: ${filePath} was corrupted (not an array). Resetting to [].`);
+            return []; // Force it to be an array
+        }
+        // --- END FIX ---
+
+        return data;
     } catch (error) {
         console.error(`Error reading ${filePath}:`, error);
         return filePath.endsWith('transactions.json') ? [] : {};
     }
 }
+// --- END MODIFICATION ---
 
 function saveFile(filePath, data) {
     try {
@@ -100,6 +114,13 @@ async function init() {
     const INVENTORY_PATH = getDataFilePath('inventory.json');
     const TRANSACTIONS_PATH = getDataFilePath('transactions.json');
     const PRODUCTS_PATH = getDataFilePath('products.json');
+    const CATEGORIES_PATH = getDataFilePath('categories.json');
+
+    ensureFileExists(INVENTORY_PATH, '{}');
+    ensureFileExists(TRANSACTIONS_PATH, '[]');
+    ensureFileExists(PRODUCTS_PATH, '{}');
+    ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
+
 
     ipcMain.handle('load-data', async() => ({
         inventory: loadFile(INVENTORY_PATH),
@@ -107,10 +128,24 @@ async function init() {
         products: loadFile(PRODUCTS_PATH),
     }));
 
+    ipcMain.handle('get-categories', async() => {
+        return loadFile(CATEGORIES_PATH);
+    });
+
+    ipcMain.handle('add-category', async(event, categoryName) => {
+        if (!categoryName) {
+            throw JSON.stringify({ message: 'error_category_name_empty' });
+        }
+        const categories = loadFile(CATEGORIES_PATH);
+        const newId = `cat_${Date.now()}`;
+        categories[newId] = categoryName;
+        saveFile(CATEGORIES_PATH, categories);
+        return { id: newId, name: categoryName };
+    });
+
     ipcMain.handle('add-product', async(event, productData) => {
-        const { productName, principalCode, typeCode } = productData || {};
+        const { productName, principalCode, typeCode, category_id } = productData || {};
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
-            // 1. Throw JSON string
             throw JSON.stringify({ message: 'error_invalid_data' });
         }
 
@@ -120,11 +155,13 @@ async function init() {
         const newBarcode = `${principalCode}${typeCode}${newId}`;
 
         if (products[newBarcode]) {
-            // 2. Throw JSON string
             throw JSON.stringify({ message: 'error_barcode_collision' });
         }
 
-        products[newBarcode] = productName;
+        products[newBarcode] = {
+            name: productName,
+            category_id: category_id || 'cat_0'
+        };
         inventory[newBarcode] = {};
 
         saveFile(PRODUCTS_PATH, products);
@@ -134,7 +171,6 @@ async function init() {
     });
 
     ipcMain.handle('delete-product', async(event, barcode) => {
-        // 3. Throw JSON string
         if (!barcode) throw JSON.stringify({ message: 'error_barcode_required' });
         const products = loadFile(PRODUCTS_PATH);
         const inventory = loadFile(INVENTORY_PATH);
@@ -154,7 +190,6 @@ async function init() {
             saveFile(INVENTORY_PATH, inventory);
             return { success: true, message: 'Product deleted successfully' };
         }
-        // 4. Throw JSON string
         throw JSON.stringify({ message: 'error_product_not_found' });
     });
 
@@ -164,49 +199,53 @@ async function init() {
     });
 
     ipcMain.handle('get-product', async(event, barcode) => {
-        // 5. Throw JSON string
         if (!barcode) throw JSON.stringify({ message: 'error_barcode_required' });
         const products = loadFile(PRODUCTS_PATH);
-        const productName = products[barcode];
-        // 6. Throw JSON string
-        if (!productName) throw JSON.stringify({ message: 'error_product_not_found' });
-        return { barcode, name: productName };
+        const product = products[barcode];
+        if (!product) throw JSON.stringify({ message: 'error_product_not_found' });
+        return { barcode, name: product.name };
     });
 
     ipcMain.handle('update-product', async(event, args) => {
         const { barcode, productName } = args || {};
-        // 7. Throw JSON string
         if (!barcode || !productName) throw JSON.stringify({ message: 'error_barcode_name_required' });
         const products = loadFile(PRODUCTS_PATH);
-        // 8. Throw JSON string
         if (!products[barcode]) throw JSON.stringify({ message: 'error_product_not_found' });
-        products[barcode] = productName;
+
+        products[barcode].name = productName;
+
         saveFile(PRODUCTS_PATH, products);
         return { success: true, updatedProduct: { barcode, name: productName } };
     });
 
     ipcMain.handle('process-transaction', async(event, args) => {
-        const { lookupValue, amount, mode, size } = args;
+        const { lookupValue, amount, mode, size, cost } = args;
+
+        if ((mode === 'add' || mode === 'adjust') && (isNaN(cost) || cost < 0)) {
+            throw JSON.stringify({ message: 'error_invalid_cost' });
+        }
+
         const inventory = loadFile(INVENTORY_PATH);
         const transactions = loadFile(TRANSACTIONS_PATH);
         const products = loadFile(PRODUCTS_PATH);
-        const itemName = products[lookupValue] || 'Unknown Item';
+
+        const itemName = products[lookupValue] ? products[lookupValue].name : 'Unknown Item';
 
         if (!inventory[lookupValue]) {
-            // 9. Throw JSON string with context
             throw JSON.stringify({
                 message: 'error_item_not_found',
                 context: { itemCode: lookupValue }
             });
         }
-        if (!inventory[lookupValue][size]) inventory[lookupValue][size] = 0;
+        if (!inventory[lookupValue][size]) {
+            inventory[lookupValue][size] = { stock: 0, cost: 0 };
+        }
 
-        let currentStock = inventory[lookupValue][size];
+        let currentStock = inventory[lookupValue][size].stock;
         let newStock, logType, transactionAmount = amount;
 
         if (mode === 'cut') {
             if (currentStock < amount) {
-                // 10. Throw JSON string with context
                 throw JSON.stringify({
                     message: 'error_not_enough_stock',
                     context: { item: `${itemName} (${size})`, stock: currentStock }
@@ -217,13 +256,24 @@ async function init() {
         } else if (mode === 'add') {
             newStock = currentStock + amount;
             logType = 'Added';
-        } else {
+        } else { // adjust
             newStock = amount;
             logType = 'Adjusted';
             transactionAmount = newStock - currentStock;
         }
 
-        inventory[lookupValue][size] = newStock;
+        let newCost;
+        if (mode === 'add' || mode === 'adjust') {
+            newCost = cost;
+        } else { // 'cut'
+            newCost = inventory[lookupValue][size].cost || 0;
+        }
+
+        inventory[lookupValue][size] = {
+            stock: newStock,
+            cost: newCost
+        };
+
         const newTransaction = {
             timestamp: new Date().toISOString(),
             itemCode: lookupValue,
@@ -246,7 +296,7 @@ async function init() {
             success: true,
             message: message,
             newTransaction,
-            updatedItem: { itemCode: lookupValue, size, newStockLevel: newStock },
+            updatedItem: { itemCode: lookupValue, size, newStockLevel: newStock, newCost: newCost },
         };
     });
 

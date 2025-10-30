@@ -1,11 +1,12 @@
-import { addProduct } from './_api.js';
-// 1. Import i18n functions
-import { initializeI18n, setLanguage, t } from './i18n.js';
+import { addProduct, getCategories } from './_api.js'; // --- MODIFIED: Import getCategories
+// --- MODIFIED: Import parseError ---
+import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
 
 const addForm = document.getElementById('addProductForm');
 const productNameInput = document.getElementById('productName');
 const principalCode = document.getElementById('principalCode');
 const typeCode = document.getElementById('typeCode');
+const categorySelect = document.getElementById('productCategory'); // --- NEW: Get dropdown
 const resultDiv = document.getElementById('result');
 const resultName = document.getElementById('resultName');
 const newBarcodeDisplay = document.getElementById('newBarcodeDisplay');
@@ -13,6 +14,36 @@ const errorMessage = document.getElementById('errorMessage');
 const saveButton = document.getElementById('saveButton');
 const tempCanvas = document.getElementById('tempCanvas');
 let currentBarcodeValue = '';
+
+// --- NEW: Function to load categories into the dropdown ---
+async function loadCategories() {
+    try {
+        const categories = await getCategories();
+        categorySelect.innerHTML = ''; // Clear any existing options
+
+        // Sort categories by name, but keep "Default" (cat_0) at the top
+        const sortedCategories = Object.entries(categories)
+            .filter(([id, name]) => id !== 'cat_0')
+            .sort(([, nameA], [, nameB]) => nameA.localeCompare(nameB));
+
+        // Add "Default" back to the beginning
+        if (categories['cat_0']) {
+            sortedCategories.unshift(['cat_0', categories['cat_0']]);
+        }
+
+        // Create <option> for each category
+        for (const [id, name] of sortedCategories) {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            categorySelect.appendChild(option);
+        }
+    } catch (err) {
+        console.error('Error loading categories:', err);
+        const { key, context } = parseError(err);
+        errorMessage.textContent = t(key, context);
+    }
+}
 
 addForm.addEventListener('submit', async function(event) {
     event.preventDefault();
@@ -22,12 +53,12 @@ addForm.addEventListener('submit', async function(event) {
     const productData = {
         productName: productNameInput.value,
         principalCode: principalCode.value,
-        typeCode: typeCode.value
+        typeCode: typeCode.value,
+        category_id: categorySelect.value // --- MODIFIED: Get value from dropdown
     };
 
     try {
         const result = await addProduct(productData);
-
 
         resultName.textContent = result.name;
         currentBarcodeValue = result.barcode;
@@ -44,10 +75,11 @@ addForm.addEventListener('submit', async function(event) {
 
         resultDiv.style.display = 'block';
         addForm.reset();
+        // Reset dropdown to default
+        categorySelect.value = 'cat_0';
 
     } catch (err) {
         console.error('Error creating product:', err);
-        // Use the new error parser
         const { key, context } = parseError(err);
         errorMessage.textContent = t(key, context);
         resultDiv.style.display = 'block'; // Show error in result div
@@ -79,13 +111,11 @@ saveButton.addEventListener('click', function() {
 
     } catch (e) {
         console.error("Error saving barcode PNG:", e);
-        // 3. Use translation key for error
         errorMessage.textContent = t('error_save_png', { message: e.message });
         resultDiv.style.display = 'block'; // Show error
     }
 });
 
-// 4. Add language switcher listeners
 // Add language switcher listeners
 const langEnButton = document.getElementById('lang-en');
 if (langEnButton) {
@@ -96,5 +126,11 @@ const langThButton = document.getElementById('lang-th');
 if (langThButton) {
     langThButton.addEventListener('click', () => setLanguage('th'));
 }
-// 5. Initialize translations
-initializeI18n();
+
+// --- MODIFIED: Create new init function ---
+async function initializeApp() {
+    await initializeI18n(); // Load translations
+    await loadCategories(); // Load categories into dropdown
+}
+
+initializeApp();

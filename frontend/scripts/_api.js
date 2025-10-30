@@ -20,6 +20,43 @@ export async function loadData() {
 }
 
 /**
+ * --- NEW: Load all categories ---
+ * @returns {Promise<Object>} e.g., {"cat_1": "T-Shirts"}
+ */
+export async function getCategories() {
+    if (hasElectronAPI && window.electronAPI.getCategories) {
+        return await window.electronAPI.getCategories();
+    }
+    const resp = await fetch('/api/categories');
+    if (!resp.ok) throw new Error('Failed to fetch categories from server');
+    return await resp.json();
+}
+
+/**
+ * --- NEW: Add a new category ---
+ * @param {string} categoryName - The name for the new category
+ * @returns {Promise<{id: string, name: string}>}
+ */
+export async function addCategory(categoryName) {
+    if (hasElectronAPI && window.electronAPI.addCategory) {
+        return await window.electronAPI.addCategory(categoryName);
+    }
+    const resp = await fetch('/api/category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryName })
+    });
+    if (!resp.ok) {
+        const errObj = await resp.json().catch(() => ({}));
+        const err = new Error(errObj.message || 'Server error creating category');
+        err.serverResponse = errObj;
+        throw err;
+    }
+    return await resp.json();
+}
+
+
+/**
  * Process a transaction (add/cut/adjust stock).
  * @param {Object} payload - The transaction details
  * @param {string} payload.lookupValue - The product barcode
@@ -65,7 +102,9 @@ export async function addProduct(productData) {
     });
     if (!resp.ok) {
         const errObj = await resp.json().catch(() => ({}));
-        throw new Error(errObj.message || 'Server error creating product');
+        const err = new Error(errObj.message || 'Server error creating product');
+        err.serverResponse = errObj;
+        throw err;
     }
     return await resp.json();
 }
@@ -150,7 +189,8 @@ export function getRouteHref(route) {
         '/item-list': 'item_list.html',
         '/item-history': 'item_history.html',
         '/transactions': 'transactions.html',
-        '/reports': 'reports.html'
+        '/reports': 'reports.html',
+        '/categories': 'categories.html' // --- NEW ---
     };
 
     // Handle parameterized routes
