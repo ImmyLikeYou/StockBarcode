@@ -1,6 +1,6 @@
 {
     "name": "barcode-inventory-system",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "description": "Barcode inventory system desktop app",
     "main": "main.js",
     "scripts": {

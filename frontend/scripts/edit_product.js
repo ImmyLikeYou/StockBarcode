@@ -3,8 +3,8 @@ import { getProduct, updateProduct, loadData } from './_api.js';
 import { navigateTo, getRouteParams } from './route_handler.js';
 import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
 
-// --- Define all your sizes in order ---
-const ALL_SIZES = ["F", "M", "L", "XL", "2L", "3L", "4L", "5L", "6L"];
+// --- MODIFIED: Add new sizes to match your list ---
+const ALL_SIZES = ["F", "M", "L", "XL", "2L", "3L", "4L", "5L", "6L", "3XL", "4XL", "5XL", "6XL"];
 
 const editForm = document.getElementById('editProductForm');
 const productBarcodeEl = document.getElementById('productBarcode');
@@ -35,12 +35,7 @@ async function loadProductDetails(barcode) {
         const inventoryData = allData.inventory[barcode] || {};
 
         // 1. Populate main product fields
-        // --- THIS WAS THE BUG ---
-        // I used productData.barcode, which is undefined.
-        // It should be productBarcodeValue (from the URL).
         productBarcodeEl.value = productBarcodeValue;
-        // --- END FIX ---
-
         productNameInput.value = productData.name;
         defaultCostInput.value = productData.default_cost || 0;
 

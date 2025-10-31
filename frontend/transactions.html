@@ -109,11 +109,12 @@
                             <th data-i18n-key="transactions_table_cost">Cost (ea.)</th>
                             <th data-i18n-key="transactions_table_total_cost">Total Cost</th>
                             <th data-i18n-key="transactions_table_new_stock">New Stock</th>
+                            <th data-i18n-key="transactions_table_delete">Delete</th>
                         </tr>
                     </thead>
                     <tbody id="transactionTableBody">
                         <tr>
-                            <td colspan="8" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
+                            <td colspan="9" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -124,53 +125,70 @@
             <div id="graphContainer"> <canvas id="transactionChart"></canvas> </div>
         </div>
     </main>
+    <div id="deleteTransactionModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 data-i18n-key="modal_delete_transaction_title">Confirm Delete Transaction</h3>
+            <p id="deleteTransactionText"></p>
+            <input type="hidden" id="deleteTransactionTimestamp">
+
+            <div class="modal-buttons">
+                <button type="button" id="cancelDeleteTxBtn" class="modal-cancel-btn" data-i18n-key="modal_delete_cancel">Cancel</button>
+                <button type="button" id="confirmDeleteTxBtn" class="modal-delete-btn" data-i18n-key="transactions_table_delete">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastNotification" class="toast"> <span id="toastMessage"></span> </div>
 
     <script type="module" data-src="/scripts/transactions.js"></script>
-    <script>
-        (function() {
-            // set script src attributes
-            const scripts = document.querySelectorAll('script[data-src]');
-            scripts.forEach(s => {
-                const d = s.getAttribute('data-src');
-                if (!d) return;
-                s.setAttribute('src', location.protocol === 'file:' ? d.replace(/^\//, '') : d);
-            });
+</body>
 
-            // set anchor hrefs from data-href
-            document.querySelectorAll('a[data-href]').forEach(a => {
-                const data = a.getAttribute('data-href');
-                if (!data) return;
-                a.setAttribute('href', location.protocol === 'file:' ? data.replace(/^\//, '') : data);
-            });
+<script type="module" data-src="/scripts/transactions.js"></script>
+<script>
+    (function() {
+        // set script src attributes
+        const scripts = document.querySelectorAll('script[data-src]');
+        scripts.forEach(s => {
+            const d = s.getAttribute('data-src');
+            if (!d) return;
+            s.setAttribute('src', location.protocol === 'file:' ? d.replace(/^\//, '') : d);
+        });
 
-            // when under file://, rewrite server-style links to local filenames
-            if (location.protocol !== 'file:') return;
-            const routeMap = {
-                '/': 'barcode_receiver.html',
-                '/add-product': 'add_product.html',
-                '/edit-product': 'edit_product.html',
-                '/item-list': 'item_list.html',
-                '/item-history': 'item_history.html',
-                '/transactions': 'transactions.html',
-                '/reports': 'reports.html',
-                '/categories': 'categories.html'
-            };
-            document.querySelectorAll('a[href^="/"]').forEach(a => {
-                const href = a.getAttribute('href');
-                if (!href) return;
-                if (href.startsWith('/edit-product/')) {
-                    const barcode = href.split('/').pop();
-                    a.setAttribute('href', `edit_product.html?barcode=${encodeURIComponent(barcode)}`);
-                } else if (href.startsWith('/item-history/')) {
-                    const barcode = href.split('/').pop();
-                    a.setAttribute('href', `item_history.html?barcode=${encodeURIComponent(barcode)}`);
-                } else {
-                    const base = href.split('?')[0].replace(/\/$/, '');
-                    if (routeMap[base]) a.setAttribute('href', routeMap[base]);
-                }
-            });
-        })();
-    </script>
+        // set anchor hrefs from data-href
+        document.querySelectorAll('a[data-href]').forEach(a => {
+            const data = a.getAttribute('data-href');
+            if (!data) return;
+            a.setAttribute('href', location.protocol === 'file:' ? data.replace(/^\//, '') : data);
+        });
+
+        // when under file://, rewrite server-style links to local filenames
+        if (location.protocol !== 'file:') return;
+        const routeMap = {
+            '/': 'barcode_receiver.html',
+            '/add-product': 'add_product.html',
+            '/edit-product': 'edit_product.html',
+            '/item-list': 'item_list.html',
+            '/item-history': 'item_history.html',
+            '/transactions': 'transactions.html',
+            '/reports': 'reports.html',
+            '/categories': 'categories.html'
+        };
+        document.querySelectorAll('a[href^="/"]').forEach(a => {
+            const href = a.getAttribute('href');
+            if (!href) return;
+            if (href.startsWith('/edit-product/')) {
+                const barcode = href.split('/').pop();
+                a.setAttribute('href', `edit_product.html?barcode=${encodeURIComponent(barcode)}`);
+            } else if (href.startsWith('/item-history/')) {
+                const barcode = href.split('/').pop();
+                a.setAttribute('href', `item_history.html?barcode=${encodeURIComponent(barcode)}`);
+            } else {
+                const base = href.split('?')[0].replace(/\/$/, '');
+                if (routeMap[base]) a.setAttribute('href', routeMap[base]);
+            }
+        });
+    })();
+</script>
 </body>
 
 </html>

@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     clearLog: () => ipcRenderer.invoke('clear-log'),
     getProduct: (barcode) => ipcRenderer.invoke('get-product', barcode),
     updateProduct: (args) => ipcRenderer.invoke('update-product', args),
+    deleteTransaction: (args) => ipcRenderer.invoke('delete-transaction', args),
 
     // Category functions
     getCategories: () => ipcRenderer.invoke('get-categories'),

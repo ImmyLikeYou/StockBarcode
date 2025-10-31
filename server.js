@@ -460,6 +460,60 @@ app.delete('/api/log', (req, res) => {
         res.status(500).json({ message: 'Error clearing log' });
     }
 });
+app.delete('/api/transaction/:timestamp', (req, res) => {
+    try {
+        const { timestamp } = req.params;
+        if (!timestamp) {
+            return res.status(400).json({ message: 'Transaction timestamp is required' });
+        }
+
+        const transactions = loadFile(TRANSACTIONS_PATH);
+        const inventory = loadFile(INVENTORY_PATH);
+
+        let transactionFound = false;
+        let transactionIndex = -1;
+        let tx; // The transaction to be deleted
+
+        // 1. Find the transaction
+        for (let i = 0; i < transactions.length; i++) {
+            if (transactions[i].timestamp === timestamp) {
+                tx = transactions[i];
+                transactionIndex = i;
+                transactionFound = true;
+                break;
+            }
+        }
+
+        if (!transactionFound) {
+            return res.status(404).json({ message: 'error_delete_transaction' });
+        }
+
+        // 2. Revert the stock change
+        const sizeMatch = tx.itemName.match(/\(([^)]+)\)$/);
+        const size = sizeMatch ? sizeMatch[1] : null;
+
+        if (!size || !inventory[tx.itemCode] || !inventory[tx.itemCode][size]) {
+            console.error(`Could not find inventory item for ${tx.itemCode} (${size}) to revert stock.`);
+            return res.status(500).json({ message: 'error_item_not_found_in_inventory' });
+        }
+
+        // 3. Revert the stock change
+        inventory[tx.itemCode][size].stock -= tx.amount;
+
+        // 4. Remove the transaction from the log
+        transactions.splice(transactionIndex, 1);
+
+        // 5. Save both files
+        saveFile(INVENTORY_PATH, inventory);
+        saveFile(TRANSACTIONS_PATH, transactions);
+
+        res.status(200).json({ success: true, message: 'Transaction deleted and stock reverted.' });
+
+    } catch (err) {
+        console.error('Error deleting transaction:', err);
+        res.status(500).json({ message: 'Server error deleting transaction' });
+    }
+});
 
 // --- 6. Start the Server ---
 app.listen(PORT, () => {

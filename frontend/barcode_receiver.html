@@ -46,6 +46,15 @@
                 <form id="scanForm">
                     <input type="text" id="barcodeInput" placeholder="Waiting for scan..." data-i18n-key="inventory_placeholder" data-i18n-placeholder="true" autofocus>
                 </form>
+
+                <div id="manual-entry-container">
+                    <h3 data-i18n-key="inventory_manual_entry_title">Manual Entry</h3>
+                    <div id="manual-search-area">
+                        <input type="text" id="manualSearchInput" placeholder="Search product name..." data-i18n-key="inventory_manual_placeholder" data-i18n-placeholder="true">
+                        <div id="manualSuggestions"></div>
+                    </div>
+                    <button id="manualSubmitButton" data-i18n-key="inventory_manual_submit_button">Submit Manual Entry</button>
+                </div>
                 <h3 data-i18n-key="inventory_quick_log">Quick Log:</h3>
                 <ul id="scanLog"></ul>
             </div>
@@ -70,7 +79,15 @@
                         <input type="radio" id="size3L" name="transactionSize" value="3L"> <label for="size3L">3L</label>
                         <input type="radio" id="size4L" name="transactionSize" value="4L"> <label for="size4L">4L</label>
                         <input type="radio" id="size5L" name="transactionSize" value="5L"> <label for="size5L">5L</label>
+                    </div>
+                    <div class="size-row">
                         <input type="radio" id="size6L" name="transactionSize" value="6L"> <label for="size6L">6L</label>
+                        <input type="radio" id="size3XL" name="transactionSize" value="3XL"> <label for="size3XL">3XL</label>
+                        <input type="radio" id="size4XL" name="transactionSize" value="4XL"> <label for="size4XL">4XL</label>
+                        <input type="radio" id="size5XL" name="transactionSize" value="5XL"> <label for="size5XL">5XL</label>
+                    </div>
+                    <div class="size-row">
+                        <input type="radio" id="size6XL" name="transactionSize" value="6XL"> <label for="size6XL">6XL</label>
                     </div>
                 </div>
                 <h3 data-i18n-key="inventory_amount_title">Transaction Amount:</h3>
@@ -81,7 +98,14 @@
         <div id="bottom-container">
             <div id="inventory-container">
                 <h2 data-i18n-key="inventory_current_stock">Current Stock</h2>
-                <ul id="inventory-display"></ul>
+
+                <div id="inventory-search-container">
+                    <select id="inventoryCategoryFilter">
+                        <option value="all" data-i18n-key="inventory_filter_all_categories">All Categories</option>
+                    </select>
+                    <input type="text" id="inventorySearchInput" placeholder="Search stock..." data-i18n-key="inventory_search_placeholder" data-i18n-placeholder="true">
+                </div>
+                <div id="inventory-display"></div>
             </div>
             <div id="sell-log-container">
                 <h2 data-i18n-key="inventory_transaction_log">Transaction Log</h2>

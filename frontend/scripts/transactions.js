@@ -1,4 +1,4 @@
-import { loadData } from './_api.js';
+import { loadData, deleteTransaction } from './_api.js';
 import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
 import { navigateTo } from './route_handler.js'; // <-- ADD THIS LINE
 
@@ -16,6 +16,18 @@ const searchNameInput = document.getElementById('searchNameInput');
 const searchDateInput = document.getElementById('searchDateInput');
 const searchTypeInput = document.getElementById('searchTypeInput');
 const suggestionsDiv = document.getElementById('suggestions');
+// --- NEW: Toast Elements ---
+const toastElement = document.getElementById('toastNotification');
+const toastMessageSpan = document.getElementById('toastMessage');
+let toastTimeout = null;
+
+// --- NEW: Modal Elements ---
+const deleteModal = document.getElementById('deleteTransactionModal');
+const deleteTransactionText = document.getElementById('deleteTransactionText');
+const deleteTransactionTimestamp = document.getElementById('deleteTransactionTimestamp');
+const cancelDeleteTxBtn = document.getElementById('cancelDeleteTxBtn');
+const confirmDeleteTxBtn = document.getElementById('confirmDeleteTxBtn');
+// --- END NEW ---
 
 let allTransactions = [];
 let filteredTransactions = [];
@@ -24,6 +36,19 @@ let uniqueItemNames = [];
 
 let currentInventory = {};
 let currentProducts = {};
+
+// --- NEW: Toast function (from receiver.js) ---
+function showToast(message, type = 'success') {
+    if (toastTimeout) { clearTimeout(toastTimeout); }
+    toastMessageSpan.textContent = message;
+    // Basic type styling
+    toastElement.style.backgroundColor = type === 'error' ? '#dc3545' : '#28a745';
+    toastElement.className = "toast show";
+    toastTimeout = setTimeout(() => {
+        toastElement.className = toastElement.className.replace(" show", "");
+        toastTimeout = null;
+    }, 2500);
+}
 
 /**
  * Fetches transaction, inventory, and product data.
@@ -53,7 +78,7 @@ async function loadTransactionData() {
         console.error('Error loading transaction data:', err);
         const { key, context } = parseError(err);
         // UPDATED: Colspan is now 8
-        transactionTableBody.innerHTML = `<tr><td colspan="8" style="color: red; text-align: center;">${t(key, context) || t('error_loading_transactions')}</td></tr>`;
+        transactionTableBody.innerHTML = `<tr><td colspan="9" style="color: red; text-align: center;">${t(key, context) || t('error_loading_transactions')}</td></tr>`;
     }
 }
 
@@ -227,12 +252,19 @@ function renderTable() {
         row.innerHTML = `
             <td>${dateStr}</td>
             <td>${timeStr}</td>
-            <td>${entry.itemName}</td>
-            <td>${entry.type}</td>
+            <td class="clickable-cell">${entry.itemName}</td> <td>${entry.type}</td>
             <td style="text-align: right;">${amount}</td>
             <td style="text-align: right;">${costEach.toFixed(2)}</td>
             <td style="text-align: right;">${totalCost.toFixed(2)}</td>
             <td style="text-align: right;">${entry.newStock}</td>
+            <td style="text-align: center;">
+                <button class="delete-btn" 
+                        data-timestamp="${entry.timestamp}" 
+                        data-item-name="${entry.itemName}"
+                        title="${t('transactions_table_delete')}">
+                    &times;
+                </button>
+            </td>
         `;
         transactionTableBody.appendChild(row);
     });
@@ -242,7 +274,7 @@ function renderTable() {
     totalRow.style.fontWeight = 'bold';
     totalRow.style.backgroundColor = '#f8f9fa';
     totalRow.innerHTML = `
-        <td colspan="6" style="text-align: right;">Grand Total Cost:</td>
+        <td colspan="7" style="text-align: right;">Grand Total Cost:</td>
         <td style="text-align: right;">${grandTotalCost.toFixed(2)}</td>
         <td></td>
     `;
@@ -368,23 +400,61 @@ function exportToCsv() {
     link.click();
     document.body.removeChild(link);
 }
+// --- NEW: Modal and Delete Logic ---
+function showModal(modal) {
+    modal.style.display = 'flex';
+}
+
+function hideModal(modal) {
+    modal.style.display = 'none';
+}
+
+function handleDeleteClick(event) {
+    const timestamp = event.target.dataset.timestamp;
+    const itemName = event.target.dataset.itemName;
+
+    deleteTransactionTimestamp.value = timestamp;
+    deleteTransactionText.textContent = t('modal_delete_transaction_text', { name: itemName });
+    showModal(deleteModal);
+}
+async function handleConfirmDelete() {
+    const timestamp = deleteTransactionTimestamp.value;
+
+    try {
+        await deleteTransaction(timestamp);
+        hideModal(deleteModal);
+        showToast(t('toast_transaction_deleted'), 'success');
+        // Reload all data to ensure inventory and logs are in sync
+        await loadTransactionData();
+    } catch (err) {
+        console.error('Error deleting transaction:', err);
+        const { key, context } = parseError(err);
+        hideModal(deleteModal);
+        showToast(t(key, context) || t('error_delete_transaction'), 'error');
+    }
+}
 
 
 // --- Event Listeners ---
 
-// NEW: Handle clicking on a row to see item history
+// MODIFIED: Use event delegation for history and delete
 transactionTableBody.addEventListener('click', (event) => {
-    // Find the closest 'tr' (table row) element that was clicked
-    const row = event.target.closest('tr');
+    const target = event.target;
 
-    // Check if we found a row and if it has a barcode
-    if (row && row.dataset.barcode) {
+    // Check for delete button click
+    if (target.classList.contains('delete-btn')) {
+        handleDeleteClick(event);
+        return;
+    }
+
+    // Check for item name click (for history)
+    const row = target.closest('tr');
+    if (row && row.dataset.barcode && target.classList.contains('clickable-cell')) {
         const barcode = row.dataset.barcode;
         navigateTo(`/item-history/${barcode}`);
     }
 });
 
-searchCategory.addEventListener('change', handleCategoryChange);
 searchCategory.addEventListener('change', handleCategoryChange);
 searchNameInput.addEventListener('input', () => {
     applyFilter();
@@ -398,7 +468,34 @@ document.addEventListener('click', (event) => {
     if (!searchNameInput.contains(event.target) && !suggestionsDiv.contains(event.target)) {
         suggestionsDiv.style.display = 'none';
     }
+    // NEW: Hide delete modal on outside click
+    if (event.target == deleteModal) {
+        hideModal(deleteModal);
+    }
 });
+
+searchCategory.addEventListener('change', handleCategoryChange);
+searchNameInput.addEventListener('input', () => {
+    applyFilter();
+    showSuggestions();
+});
+searchDateInput.addEventListener('change', applyFilter);
+searchTypeInput.addEventListener('input', applyFilter);
+exportButton.addEventListener('click', exportToCsv);
+
+document.addEventListener('click', (event) => {
+    if (!searchNameInput.contains(event.target) && !suggestionsDiv.contains(event.target)) {
+        suggestionsDiv.style.display = 'none';
+    }
+    // NEW: Hide delete modal on outside click
+    if (event.target == deleteModal) {
+        hideModal(deleteModal);
+    }
+});
+// --- NEW: Modal Button Listeners ---
+cancelDeleteTxBtn.addEventListener('click', () => hideModal(deleteModal));
+confirmDeleteTxBtn.addEventListener('click', handleConfirmDelete);
+// --- END NEW ---
 
 const langEnButton = document.getElementById('lang-en');
 if (langEnButton) {

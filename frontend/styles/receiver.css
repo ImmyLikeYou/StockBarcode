@@ -155,7 +155,77 @@ input[type="text"] {
 }
 
 
-/* Added error style */
+/* --- NEW: Manual Entry Styles --- */
+
+#manual-entry-container {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+#manual-entry-container h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+#manual-search-area {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+#manual-search-area input[type="text"] {
+    font-size: 1em;
+    padding: 10px;
+}
+
+#manualSubmitButton {
+    width: 100%;
+    padding: 10px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+}
+
+#manualSubmitButton:hover {
+    background-color: #0056b3;
+}
+
+
+/* Suggestion Box Styles (copied from transactions.css) */
+
+#manualSuggestions {
+    display: none;
+    position: absolute;
+    border: 1px solid #ccc;
+    background-color: white;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 100;
+    top: 100%;
+    left: 0;
+    right: 0;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+#manualSuggestions div {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+#manualSuggestions div:hover {
+    background-color: #f2f2f2;
+}
+
+#manualSuggestions .highlight {
+    font-weight: bold;
+}
+
+
+/* --- END NEW --- */
 
 #inventory-container {
     background-color: #fff;
@@ -164,26 +234,76 @@ input[type="text"] {
     flex: 1;
 }
 
+
+/* --- MODIFIED: Inventory Display Styles --- */
+
 #inventory-display {
+    /* REMOVED list-style-type and padding-left */
+    height: 400px;
+    /* Give a fixed height to the container */
+    overflow-y: auto;
+    /* Make the container scrollable */
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px;
+}
+
+#inventory-display details {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+#inventory-display details:last-of-type {
+    border-bottom: none;
+}
+
+#inventory-display details[open] summary {
+    border-bottom: 1px solid #eee;
+    /* Add separator when open */
+}
+
+#inventory-display summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 5px;
+    cursor: pointer;
+    font-size: 1.05em;
+    /* Slightly larger than normal text */
+    font-weight: 600;
+    /* Bolder, but not max */
+    color: #333;
+}
+
+#inventory-display summary:hover {
+    background-color: #f9f9f9;
+}
+
+
+/* Make summary marker (triangle) smaller */
+
+#inventory-display summary::marker {
+    font-size: 0.8em;
+}
+
+#inventory-display .product-name {
+    flex-grow: 1;
+    padding-right: 10px;
+}
+
+#inventory-display .size-list {
     list-style-type: none;
-    padding-left: 0;
+    padding: 10px 10px 10px 25px;
+    /* Indent the size list */
+    font-size: 0.95em;
+    /* Make sizes slightly smaller */
+    background-color: #fafafa;
 }
 
-#inventory-display li {
-    font-size: 1.1em;
-    padding: 5px 0;
-    clear: both;
-}
-
-#inventory-display span {
-    font-weight: bold;
+#inventory-display .stock-level {
+    font-weight: 600;
+    /* Bolder, but not max */
     color: #005a9c;
-}
-
-#inventory-display ul {
-    list-style-type: none;
-    padding-left: 20px;
-    font-size: 0.9em;
+    /* Keep the blue */
 }
 
 .delete-product-btn {
@@ -195,26 +315,43 @@ input[type="text"] {
     line-height: 1.2;
     border-radius: 4px;
     cursor: pointer;
-    float: right;
+    flex-shrink: 0;
+    /* Stop button from shrinking */
     margin-left: 10px;
 }
 
-.out-of-stock span {
+
+/* --- END MODIFICATION --- */
+
+.out-of-stock .stock-level {
     color: #dc3545;
 }
 
-.out-of-stock-label {
-    color: #dc3545;
+.stock-label {
+    /* Re-styled label */
     font-style: italic;
     font-size: 0.9em;
-    margin-left: 5px;
+    margin-left: 8px;
+}
+
+.out-of-stock .stock-label {
+    color: #dc3545;
+}
+
+.low-stock .stock-level {
+    color: #ffc107;
+}
+
+.low-stock .stock-label {
+    color: #e6a000;
 }
 
 .no-sizes {
     font-style: italic;
     color: #888;
     font-size: 0.9em;
-    margin-left: 10px;
+    padding: 10px 15px;
+    display: block;
 }
 
 #transaction-controls {
@@ -418,29 +555,26 @@ input[type="number"] {
 
 /* --- Low Stock Warning Styles --- */
 
-.low-stock span {
+.low-stock .stock-level {
     /* Target the number span */
     color: #ffc107;
     /* Warning yellow/orange */
     font-weight: bold;
 }
 
-.low-stock-label {
-    color: #ffc107;
-    font-style: italic;
-    font-size: 0.9em;
-    margin-left: 5px;
+.low-stock .stock-label {
+    color: #e6a000;
 }
 
 
 /* Ensure Out of Stock overrides Low Stock if both apply */
 
-.out-of-stock span {
+.out-of-stock .stock-level {
     color: #dc3545 !important;
     /* Red */
 }
 
-.out-of-stock-label {
+.out-of-stock .stock-label {
     color: #dc3545 !important;
 }
 
@@ -519,6 +653,8 @@ input[type="number"] {
 .size-selector .size-row {
     display: flex;
     justify-content: flex-start;
+    flex-wrap: wrap;
+    /* Allow buttons to wrap to next line */
     gap: 2px;
     /* Small gap between buttons */
     margin-bottom: 5px;
@@ -552,3 +688,73 @@ input[type="number"] {
 
 
 /* --- End Size Selector --- */
+
+#inventory-container {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    flex: 1;
+}
+
+
+/* --- NEW: Inventory Search Styles --- */
+
+#inventory-search-container {
+    margin-bottom: 10px;
+}
+
+#inventorySearchInput {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.95em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    /* Important */
+}
+
+
+/* --- END NEW --- */
+
+#inventory-container {
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    flex: 1;
+}
+
+
+/* --- MODIFIED: Inventory Search Styles --- */
+
+#inventory-search-container {
+    margin-bottom: 10px;
+    display: flex;
+    /* Use flexbox */
+    gap: 5px;
+    /* Add a small gap */
+}
+
+#inventoryCategoryFilter {
+    flex-basis: 150px;
+    /* Give dropdown a base width */
+    font-size: 0.95em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px 5px;
+    background-color: #fff;
+}
+
+#inventorySearchInput {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 0.95em;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+    /* Important */
+    flex-grow: 1;
+    /* Make search bar fill remaining space */
+}
+
+
+/* --- END MODIFICATION --- */

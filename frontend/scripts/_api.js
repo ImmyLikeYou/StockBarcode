@@ -268,3 +268,24 @@ export function getBarcodeFromUrl() {
 
     return null;
 }
+
+/**
+ * --- NEW: Delete a single transaction. ---
+ * @param {string} timestamp - The ISO timestamp of the transaction to delete.
+ * @returns {Promise<Object>}
+ */
+export async function deleteTransaction(timestamp) {
+    if (hasElectronAPI && window.electronAPI.deleteTransaction) {
+        return await window.electronAPI.deleteTransaction({ timestamp });
+    }
+    const resp = await fetch(`/api/transaction/${encodeURIComponent(timestamp)}`, {
+        method: 'DELETE'
+    });
+    if (!resp.ok) {
+        const errObj = await resp.json().catch(() => ({}));
+        const err = new Error(errObj.message || 'Server error deleting transaction');
+        err.serverResponse = errObj;
+        throw err;
+    }
+    return await resp.json();
+}

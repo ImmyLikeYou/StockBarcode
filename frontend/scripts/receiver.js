@@ -1,10 +1,11 @@
-import { loadData, processTransaction, deleteProduct, clearLog } from './_api.js';
+import { loadData, processTransaction, deleteProduct, clearLog, getCategories } from './_api.js';
 import { navigateTo } from './route_handler.js';
 import { initializeI18n, setLanguage, t, parseError, getCurrentLanguage } from './i18n.js';
 
 // --- 1. CONFIGURATION ---
 const LOW_STOCK_THRESHOLD = 10;
-let itemNames = {};
+let allProducts = {}; // This is the variable we are using
+let allCategories = {};
 let inventoryStock = {};
 let sellLogData = [];
 let currentFilterDate = null;
@@ -29,12 +30,19 @@ const toastMessageSpan = document.getElementById('toastMessage');
 let toastTimeout = null;
 let scanDebounceTimer = null;
 
-// --- REMOVED: Cost input elements ---
-// --- REMOVED: transactionModeRadios (no longer needed for visibility) ---
+// --- Manual Entry Elements ---
+const manualSearchInput = document.getElementById('manualSearchInput');
+const manualSuggestionsDiv = document.getElementById('manualSuggestions');
+const manualSubmitButton = document.getElementById('manualSubmitButton');
+let uniqueItemNames = []; // Will be { name: "...", barcode: "..." }
+let manualSelectedBarcode = null;
+
+// --- Inventory Search Elements ---
+const inventorySearchInput = document.getElementById('inventorySearchInput');
+const inventoryCategoryFilter = document.getElementById('inventoryCategoryFilter');
+
 
 // --- 2. DISPLAY FUNCTIONS ---
-
-// --- REMOVED: updateCostInputVisibility function ---
 
 function showToast(message) {
     if (toastTimeout) { clearTimeout(toastTimeout); }
@@ -47,9 +55,11 @@ function showToast(message) {
 }
 
 function handleDeleteProduct(event) {
+    event.preventDefault(); // Stop the <details> from toggling
+    event.stopPropagation(); // Stop click from bubbling
     const button = event.target;
     barcodeToDelete = button.dataset.barcode;
-    const productName = itemNames[barcodeToDelete] ? itemNames[barcodeToDelete].name : 'this product';
+    const productName = allProducts[barcodeToDelete] ? allProducts[barcodeToDelete].name : 'this product'; // --- CORRECTED ---
     itemToDeleteNameSpan.textContent = `"${productName}"`;
     deleteModal.style.display = 'flex';
 }
@@ -58,7 +68,7 @@ async function executeDelete() {
     try {
         await deleteProduct(barcodeToDelete);
         delete inventoryStock[barcodeToDelete];
-        delete itemNames[barcodeToDelete];
+        delete allProducts[barcodeToDelete]; // --- CORRECTED ---
         updateInventoryDisplay();
         showToast(t('toast_product_deleted'));
     } catch (err) {
@@ -71,24 +81,40 @@ async function executeDelete() {
     }
 }
 
+
 function updateInventoryDisplay() {
     inventoryDisplay.innerHTML = '';
     const currentLang = getCurrentLanguage();
 
-    // --- NEW: Define the order of sizes ---
-    const sizeOrder = ["F", "M", "L", "XL", "2L", "3L", "4L", "5L", "6L"];
+    const sizeOrder = ["F", "M", "L", "XL", "2L", "3L", "4L", "5L", "6L", "3XL", "4XL", "5XL", "6XL"];
 
     for (const itemCode in inventoryStock) {
-        const itemName = itemNames[itemCode] ? itemNames[itemCode].name : "Unknown Item";
+        const product = allProducts[itemCode]; // --- CORRECTED ---
+        const itemName = product ? product.name : "Unknown Item";
+        const categoryId = (product && product.category_id) ? product.category_id : 'cat_0';
         const stockLevels = inventoryStock[itemCode];
-        const newItemDisplay = document.createElement('li');
+
+        const newItemDisplay = document.createElement('details');
+        newItemDisplay.open = true;
+        newItemDisplay.dataset.productName = itemName.toLowerCase();
+        newItemDisplay.dataset.categoryId = categoryId;
+
+        const summary = document.createElement('summary');
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'product-name';
+        nameSpan.textContent = itemName;
+
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-product-btn';
         deleteBtn.innerHTML = '&times;';
         deleteBtn.dataset.barcode = itemCode;
+        deleteBtn.title = t('modal_delete_confirm');
         deleteBtn.addEventListener('click', handleDeleteProduct);
-        newItemDisplay.appendChild(deleteBtn);
-        newItemDisplay.append(`${itemName}:`);
+
+        summary.appendChild(nameSpan);
+        summary.appendChild(deleteBtn);
+        newItemDisplay.appendChild(summary);
 
         const stockEntries = Object.keys(stockLevels);
 
@@ -99,12 +125,11 @@ function updateInventoryDisplay() {
             newItemDisplay.appendChild(noSizeSpan);
         } else {
             const sizeList = document.createElement('ul');
+            sizeList.className = 'size-list';
 
-            // --- NEW: Sort the sizes based on our defined order ---
             const sortedSizes = stockEntries.sort((a, b) => {
                 const indexA = sizeOrder.indexOf(a);
                 const indexB = sizeOrder.indexOf(b);
-                // Put unknown sizes at the end
                 if (indexA === -1) return 1;
                 if (indexB === -1) return -1;
                 return indexA - indexB;
@@ -117,15 +142,15 @@ function updateInventoryDisplay() {
 
                 const sizeItem = document.createElement('li');
 
-                const stockText = `${size}: <span>${stockLevel}</span>`;
+                const stockText = `${size}: <span class="stock-level">${stockLevel}</span>`;
                 const costText = `<span class="cost-display">(Cost: ${costString})</span>`;
 
                 if (stockLevel === 0) {
                     sizeItem.className = 'out-of-stock';
-                    sizeItem.innerHTML = `${stockText} ${costText} <span class="out-of-stock-label">(Out of Stock)</span>`;
+                    sizeItem.innerHTML = `${stockText} ${costText} <span class="stock-label">(Out of Stock)</span>`;
                 } else if (stockLevel < LOW_STOCK_THRESHOLD) {
                     sizeItem.className = 'low-stock';
-                    sizeItem.innerHTML = `${stockText} ${costText} <span class="low-stock-label">(Low Stock)</span>`;
+                    sizeItem.innerHTML = `${stockText} ${costText} <span class="stock-label">(Low Stock)</span>`;
                 } else {
                     sizeItem.innerHTML = `${stockText} ${costText}`;
                 }
@@ -135,6 +160,44 @@ function updateInventoryDisplay() {
         }
         inventoryDisplay.appendChild(newItemDisplay);
     }
+
+    filterInventoryDisplay();
+}
+
+function populateInventoryCategoryFilter() {
+    while (inventoryCategoryFilter.options.length > 1) {
+        inventoryCategoryFilter.remove(1);
+    }
+
+    const sortedCategories = Object.entries(allCategories)
+        .sort(([, nameA], [, nameB]) => nameA.localeCompare(nameB));
+
+    for (const [id, name] of sortedCategories) {
+        const option = document.createElement('option');
+        option.value = id;
+        option.textContent = name;
+        inventoryCategoryFilter.appendChild(option);
+    }
+}
+
+function filterInventoryDisplay() {
+    const searchTerm = inventorySearchInput.value.toLowerCase();
+    const selectedCategory = inventoryCategoryFilter.value;
+    const items = inventoryDisplay.querySelectorAll('details');
+
+    items.forEach(item => {
+        const productName = item.dataset.productName;
+        const productCategory = item.dataset.categoryId;
+
+        const nameMatches = productName.includes(searchTerm);
+        const categoryMatches = (selectedCategory === 'all' || productCategory === selectedCategory);
+
+        if (nameMatches && categoryMatches) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
 }
 
 function renderSellLog() {
@@ -158,14 +221,27 @@ function renderSellLog() {
 // --- 3. API (MAIN PROCESS) FUNCTIONS ---
 async function loadAllData() {
     try {
-        const data = await loadData();
+        const [data, categories] = await Promise.all([
+            loadData(),
+            getCategories()
+        ]);
+
         inventoryStock = data.inventory;
         sellLogData = data.transactions;
-        itemNames = data.products;
+        allProducts = data.products; // --- CORRECTED ---
+        allCategories = categories;
+
+        populateInventoryCategoryFilter();
+
+        // --- Populate for manual entry suggestions ---
+        uniqueItemNames = Object.keys(allProducts).map(barcode => { // --- THIS WAS THE ERROR LINE (Line 235 for you) ---
+            return { name: allProducts[barcode].name, barcode: barcode };
+        }).sort((a, b) => a.name.localeCompare(b.name));
+
         updateInventoryDisplay();
         renderSellLog();
     } catch (err) {
-        console.error('Error loading data:', err);
+        console.error('Error loading data:', err); // --- This was line 249 for you ---
         alert(t('error_load_data'));
     }
 }
@@ -196,7 +272,6 @@ async function processScan() {
     const transactionMode = document.querySelector('input[name="transactionMode"]:checked').value;
     const transactionSize = document.querySelector('input[name="transactionSize"]:checked').value;
     const amountOrNewStock = parseInt(transactionAmountInput.value, 10);
-    // --- REMOVED: Cost variable ---
 
     let errorOccurred = false;
 
@@ -206,8 +281,7 @@ async function processScan() {
     } else if (transactionMode === 'adjust' && (isNaN(amountOrNewStock) || amountOrNewStock < 0)) {
         showToast(t('error_invalid_amount_add_cut'));
         errorOccurred = true;
-        // --- REMOVED: Cost validation ---
-    } else if (!itemNames.hasOwnProperty(lookupValue)) {
+    } else if (!allProducts.hasOwnProperty(lookupValue)) { // --- CORRECTED ---
         const newLogItem = document.createElement('li');
         newLogItem.textContent = `Unknown Item: ${scannedValue}`;
         newLogItem.className = 'no-match';
@@ -218,7 +292,6 @@ async function processScan() {
 
     if (!errorOccurred) {
         try {
-            // --- MODIFIED: Payload no longer includes cost ---
             const payload = {
                 lookupValue,
                 amount: amountOrNewStock,
@@ -266,6 +339,115 @@ async function processScan() {
     barcodeInput.focus();
 }
 
+// --- NEW: Manual Entry Logic ---
+function showSuggestions() {
+    const inputText = manualSearchInput.value.toLowerCase();
+    manualSuggestionsDiv.innerHTML = '';
+
+    if (!inputText) {
+        manualSuggestionsDiv.style.display = 'none';
+        return;
+    }
+
+    const matchingNames = uniqueItemNames.filter(item =>
+        item.name.toLowerCase().includes(inputText)
+    );
+
+    if (matchingNames.length > 0) {
+        matchingNames.forEach(item => {
+            const div = document.createElement('div');
+            const index = item.name.toLowerCase().indexOf(inputText);
+            const highlighted = item.name.substring(0, index) +
+                `<span class="highlight">${item.name.substring(index, index + inputText.length)}</span>` +
+                item.name.substring(index + inputText.length);
+
+            div.innerHTML = highlighted;
+            div.addEventListener('click', () => {
+                manualSearchInput.value = item.name;
+                manualSelectedBarcode = item.barcode; // Store the barcode
+                manualSuggestionsDiv.style.display = 'none';
+            });
+            manualSuggestionsDiv.appendChild(div);
+        });
+        manualSuggestionsDiv.style.display = 'block';
+    } else {
+        manualSuggestionsDiv.style.display = 'none';
+    }
+}
+
+async function handleManualSubmit() {
+    const lookupValue = manualSelectedBarcode;
+    const transactionMode = document.querySelector('input[name="transactionMode"]:checked').value;
+    const transactionSize = document.querySelector('input[name="transactionSize"]:checked').value;
+    const amountOrNewStock = parseInt(transactionAmountInput.value, 10);
+
+    let errorOccurred = false;
+
+    if (!lookupValue) {
+        showToast(t('inventory_manual_error_no_product'));
+        errorOccurred = true;
+    } else if ((transactionMode === 'add' || transactionMode === 'cut') && (!amountOrNewStock || amountOrNewStock < 1)) {
+        showToast(t('error_invalid_amount_add_cut'));
+        errorOccurred = true;
+    } else if (transactionMode === 'adjust' && (isNaN(amountOrNewStock) || amountOrNewStock < 0)) {
+        showToast(t('error_invalid_amount_add_cut'));
+        errorOccurred = true;
+    }
+
+    if (!errorOccurred) {
+        try {
+            const payload = {
+                lookupValue,
+                amount: amountOrNewStock,
+                mode: transactionMode,
+                size: transactionSize
+            };
+
+            const result = await processTransaction(payload);
+            const { itemCode, size, newStockLevel, newCost } = result.updatedItem;
+
+            if (!inventoryStock[itemCode]) inventoryStock[itemCode] = {};
+            inventoryStock[itemCode][size] = {
+                stock: newStockLevel,
+                cost: newCost
+            };
+
+            sellLogData.push(result.newTransaction);
+            updateInventoryDisplay();
+            renderSellLog();
+            const newLogItem = document.createElement('li');
+            newLogItem.textContent = `(Manual) ${result.message}`;
+            if (transactionMode === 'add') newLogItem.className = 'match-add';
+            else if (transactionMode === 'cut') newLogItem.className = 'match-cut';
+            else newLogItem.className = 'match-adjust';
+            scanLog.append(newLogItem);
+            scanLog.scrollTop = scanLog.scrollHeight;
+        } catch (err) {
+            console.error('Error processing manual transaction:', err);
+            const { key, context } = parseError(err);
+            const translatedError = t(key, context);
+
+            if (key === 'error_not_enough_stock') {
+                showToast(translatedError);
+            } else {
+                const newLogItem = document.createElement('li');
+                newLogItem.textContent = `(Manual) ${translatedError}`;
+                newLogItem.className = 'error';
+                scanLog.append(newLogItem);
+                scanLog.scrollTop = scanLog.scrollHeight;
+            }
+            errorOccurred = true;
+        }
+    }
+
+    // Clear manual inputs
+    manualSearchInput.value = '';
+    manualSelectedBarcode = null;
+    barcodeInput.focus(); // Set focus back to scanner
+}
+// --- END NEW ---
+
+
 // --- 5. EVENT LISTENERS ---
 barcodeInput.addEventListener('input', () => {
     clearTimeout(scanDebounceTimer);
@@ -300,9 +482,21 @@ window.addEventListener('click', (event) => {
         deleteModal.style.display = 'none';
         barcodeToDelete = null;
     }
+    if (manualSuggestionsDiv && !manualSearchInput.contains(event.target) && !manualSuggestionsDiv.contains(event.target)) {
+        manualSuggestionsDiv.style.display = 'none';
+    }
 });
 
-// --- REMOVED: Listeners for transaction mode change ---
+
+// --- Manual Entry Listeners ---
+manualSearchInput.addEventListener('input', showSuggestions);
+manualSearchInput.addEventListener('focus', showSuggestions);
+manualSubmitButton.addEventListener('click', handleManualSubmit);
+
+// --- Inventory Search Listener ---
+inventorySearchInput.addEventListener('input', filterInventoryDisplay);
+inventoryCategoryFilter.addEventListener('change', filterInventoryDisplay);
+
 
 // Add language switcher listeners
 const langEnButton = document.getElementById('lang-en');
@@ -319,7 +513,6 @@ if (langThButton) {
 // --- 6. INITIALIZE ---
 async function initializeApp() {
     await initializeI18n();
-    // --- REMOVED: updateCostInputVisibility() ---
     loadAllData();
 }
 

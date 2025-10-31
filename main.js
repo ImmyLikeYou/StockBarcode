@@ -369,6 +369,55 @@ async function init() {
             updatedItem: { itemCode: lookupValue, size, newStockLevel: newStock, newCost: newCost },
         };
     });
+    ipcMain.handle('delete-transaction', async(event, { timestamp }) => {
+        if (!timestamp) {
+            throw JSON.stringify({ message: 'Transaction timestamp is required' });
+        }
+
+        const transactions = loadFile(TRANSACTIONS_PATH);
+        const inventory = loadFile(INVENTORY_PATH);
+
+        let transactionFound = false;
+        let transactionIndex = -1;
+        let tx; // The transaction to be deleted
+
+        // 1. Find the transaction
+        for (let i = 0; i < transactions.length; i++) {
+            if (transactions[i].timestamp === timestamp) {
+                tx = transactions[i];
+                transactionIndex = i;
+                transactionFound = true;
+                break;
+            }
+        }
+
+        if (!transactionFound) {
+            throw JSON.stringify({ message: 'error_delete_transaction' });
+        }
+
+        // 2. Revert the stock change
+        const sizeMatch = tx.itemName.match(/\(([^)]+)\)$/);
+        const size = sizeMatch ? sizeMatch[1] : null;
+
+        if (!size || !inventory[tx.itemCode] || !inventory[tx.itemCode][size]) {
+            // This should not happen if data is consistent, but it's a good safeguard
+            console.error(`Could not find inventory item for ${tx.itemCode} (${size}) to revert stock.`);
+            throw JSON.stringify({ message: 'error_item_not_found_in_inventory' });
+        }
+
+        // This works for "Added" (amount is +), "Cut" (amount is -), and "Adjusted" (amount is delta)
+        // Reverting is as simple as subtracting the transaction's "amount"
+        inventory[tx.itemCode][size].stock -= tx.amount;
+
+        // 3. Remove the transaction from the log
+        transactions.splice(transactionIndex, 1);
+
+        // 4. Save both files
+        saveFile(INVENTORY_PATH, inventory);
+        saveFile(TRANSACTIONS_PATH, transactions);
+
+        return { success: true, message: 'Transaction deleted and stock reverted.' };
+    });
 
     createWindow();
 
