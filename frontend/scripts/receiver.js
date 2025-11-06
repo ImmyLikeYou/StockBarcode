@@ -1,6 +1,20 @@
-import { loadData, processTransaction, deleteProduct, clearLog, getCategories } from './_api.js';
-import { navigateTo } from './route_handler.js';
-import { initializeI18n, setLanguage, t, parseError, getCurrentLanguage } from './i18n.js';
+import {
+    loadData,
+    processTransaction,
+    deleteProduct,
+    clearLog,
+    getCategories
+} from './_api.js';
+import {
+    navigateTo
+} from './route_handler.js';
+import {
+    initializeI18n,
+    setLanguage,
+    t,
+    parseError,
+    getCurrentLanguage
+} from './i18n.js';
 
 // --- 1. CONFIGURATION ---
 const LOW_STOCK_THRESHOLD = 10;
@@ -20,6 +34,15 @@ const filterButton = document.getElementById('filterButton');
 const showAllButton = document.getElementById('showAllButton');
 const clearQuickLogButton = document.getElementById('clearQuickLogButton');
 const transactionAmountInput = document.getElementById('transactionAmountInput');
+
+// --- ADD THESE ---
+const salesPriceContainer = document.getElementById('salesPriceContainer');
+const transactionSalesPriceInput = document.getElementById('transactionSalesPriceInput');
+const modeCutRadio = document.getElementById('modeCut');
+const modeAddRadio = document.getElementById('modeAdd');
+const modeAdjustRadio = document.getElementById('modeAdjust');
+// --- END ADD ---
+
 const deleteModal = document.getElementById('deleteConfirmationModal');
 const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
 const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
@@ -45,13 +68,27 @@ const inventoryCategoryFilter = document.getElementById('inventoryCategoryFilter
 // --- 2. DISPLAY FUNCTIONS ---
 
 function showToast(message) {
-    if (toastTimeout) { clearTimeout(toastTimeout); }
+    if (toastTimeout) {
+        clearTimeout(toastTimeout);
+    }
     toastMessageSpan.textContent = message;
     toastElement.className = "toast show";
     toastTimeout = setTimeout(() => {
         toastElement.className = toastElement.className.replace(" show", "");
         toastTimeout = null;
     }, 2500);
+}
+
+/**
+ * Shows or hides the Sales Price input based on transaction mode
+ */
+function toggleSalesPriceInput() {
+    if (modeCutRadio.checked) {
+        salesPriceContainer.classList.add('visible');
+    } else {
+        salesPriceContainer.classList.remove('visible');
+        transactionSalesPriceInput.value = '0';
+    }
 }
 
 function handleDeleteProduct(event) {
@@ -73,7 +110,10 @@ async function executeDelete() {
         showToast(t('toast_product_deleted'));
     } catch (err) {
         console.error('Error deleting product:', err);
-        const { key, context } = parseError(err);
+        const {
+            key,
+            context
+        } = parseError(err);
         alert(t(key, context));
     } finally {
         deleteModal.style.display = 'none';
@@ -202,12 +242,24 @@ function filterInventoryDisplay() {
 
 function renderSellLog() {
     sellLogDisplay.innerHTML = '';
-    const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
-    const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+    const dateOptions = {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric'
+    };
+    const timeOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
     for (let i = sellLogData.length - 1; i >= 0; i--) {
         const entry = sellLogData[i];
         const entryDate = new Date(entry.timestamp);
-        if (currentFilterDate) { const filterDate = new Date(currentFilterDate); if (entryDate.toDateString() !== filterDate.toDateString()) continue; }
+        if (currentFilterDate) {
+            const filterDate = new Date(currentFilterDate + 'T00:00:00');
+            if (entryDate.toDateString() !== filterDate.toDateString()) continue;
+        }
         const dateStr = entryDate.toLocaleDateString(undefined, dateOptions);
         const timeStr = entryDate.toLocaleTimeString(undefined, timeOptions);
         const logText = `[${dateStr} ${timeStr}] ${entry.type} ${entry.amount} x ${entry.itemName}. New Stock: ${entry.newStock}`;
@@ -235,7 +287,10 @@ async function loadAllData() {
 
         // --- Populate for manual entry suggestions ---
         uniqueItemNames = Object.keys(allProducts).map(barcode => { // --- THIS WAS THE ERROR LINE (Line 235 for you) ---
-            return { name: allProducts[barcode].name, barcode: barcode };
+            return {
+                name: allProducts[barcode].name,
+                barcode: barcode
+            };
         }).sort((a, b) => a.name.localeCompare(b.name));
 
         updateInventoryDisplay();
@@ -272,6 +327,7 @@ async function processScan() {
     const transactionMode = document.querySelector('input[name="transactionMode"]:checked').value;
     const transactionSize = document.querySelector('input[name="transactionSize"]:checked').value;
     const amountOrNewStock = parseInt(transactionAmountInput.value, 10);
+    const totalSalesPrice = parseFloat(transactionSalesPriceInput.value) || 0; // <-- ADD THIS
 
     let errorOccurred = false;
 
@@ -296,11 +352,17 @@ async function processScan() {
                 lookupValue,
                 amount: amountOrNewStock,
                 mode: transactionMode,
-                size: transactionSize
+                size: transactionSize,
+                totalSalesPrice: totalSalesPrice // <-- ADD THIS
             };
 
             const result = await processTransaction(payload);
-            const { itemCode, size, newStockLevel, newCost } = result.updatedItem;
+            const {
+                itemCode,
+                size,
+                newStockLevel,
+                newCost
+            } = result.updatedItem;
 
             if (!inventoryStock[itemCode]) inventoryStock[itemCode] = {};
             inventoryStock[itemCode][size] = {
@@ -320,7 +382,10 @@ async function processScan() {
             scanLog.scrollTop = scanLog.scrollHeight;
         } catch (err) {
             console.error('Error processing transaction:', err);
-            const { key, context } = parseError(err);
+            const {
+                key,
+                context
+            } = parseError(err);
             const translatedError = t(key, context);
 
             if (key === 'error_not_enough_stock') {
@@ -380,6 +445,7 @@ async function handleManualSubmit() {
     const transactionMode = document.querySelector('input[name="transactionMode"]:checked').value;
     const transactionSize = document.querySelector('input[name="transactionSize"]:checked').value;
     const amountOrNewStock = parseInt(transactionAmountInput.value, 10);
+    const totalSalesPrice = parseFloat(transactionSalesPriceInput.value) || 0; // <-- ADD THIS
 
     let errorOccurred = false;
 
@@ -400,11 +466,17 @@ async function handleManualSubmit() {
                 lookupValue,
                 amount: amountOrNewStock,
                 mode: transactionMode,
-                size: transactionSize
+                size: transactionSize,
+                totalSalesPrice: totalSalesPrice // <-- ADD THIS
             };
 
             const result = await processTransaction(payload);
-            const { itemCode, size, newStockLevel, newCost } = result.updatedItem;
+            const {
+                itemCode,
+                size,
+                newStockLevel,
+                newCost
+            } = result.updatedItem;
 
             if (!inventoryStock[itemCode]) inventoryStock[itemCode] = {};
             inventoryStock[itemCode][size] = {
@@ -424,7 +496,10 @@ async function handleManualSubmit() {
             scanLog.scrollTop = scanLog.scrollHeight;
         } catch (err) {
             console.error('Error processing manual transaction:', err);
-            const { key, context } = parseError(err);
+            const {
+                key,
+                context
+            } = parseError(err);
             const translatedError = t(key, context);
 
             if (key === 'error_not_enough_stock') {
@@ -453,6 +528,13 @@ barcodeInput.addEventListener('input', () => {
     clearTimeout(scanDebounceTimer);
     scanDebounceTimer = setTimeout(processScan, 100);
 });
+
+// --- ADD THIS BLOCK ---
+modeCutRadio.addEventListener('change', toggleSalesPriceInput);
+modeAddRadio.addEventListener('change', toggleSalesPriceInput);
+modeAdjustRadio.addEventListener('change', toggleSalesPriceInput);
+// --- END ADD ---
+
 scanForm.addEventListener('submit', (event) => {
     event.preventDefault();
     clearTimeout(scanDebounceTimer);
@@ -461,7 +543,7 @@ scanForm.addEventListener('submit', (event) => {
 filterButton.addEventListener('click', () => {
     const dateValue = dateFilter.value;
     if (dateValue) {
-        currentFilterDate = new Date(dateValue + 'T00:00:00');
+        currentFilterDate = dateValue; // Store as string 'YYYY-MM-DD'
         renderSellLog();
     }
 });
@@ -471,7 +553,9 @@ showAllButton.addEventListener('click', () => {
     renderSellLog();
 });
 clearLogButton.addEventListener('click', clearTransactionLog);
-clearQuickLogButton.addEventListener('click', () => { scanLog.innerHTML = ''; });
+clearQuickLogButton.addEventListener('click', () => {
+    scanLog.innerHTML = '';
+});
 cancelDeleteBtn.addEventListener('click', () => {
     deleteModal.style.display = 'none';
     barcodeToDelete = null;
@@ -513,6 +597,7 @@ if (langThButton) {
 // --- 6. INITIALIZE ---
 async function initializeApp() {
     await initializeI18n();
+    toggleSalesPriceInput(); // <-- ADD THIS
     loadAllData();
 }
 

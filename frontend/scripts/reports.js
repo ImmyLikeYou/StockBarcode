@@ -54,6 +54,7 @@ function renderInventorySummaryReport() {
     // 2. Render the table
     inventorySummaryTableBody.innerHTML = '';
     let grandTotalValue = 0;
+    // REMOVED grandTotalRevenue and grandTotalProfit
 
     if (filteredData.length === 0) {
         // UPDATED: Colspan is now 5
@@ -63,8 +64,9 @@ function renderInventorySummaryReport() {
 
     filteredData.forEach(item => {
         grandTotalValue += item.totalValue;
+
         const row = document.createElement('tr');
-        // UPDATED: Added Category cell
+        // UPDATED: Removed revenue/profit cells
         row.innerHTML = `
             <td>${item.categoryName}</td>
             <td>${item.name} (${item.size})</td>
@@ -81,7 +83,7 @@ function renderInventorySummaryReport() {
         footer = document.createElement('tfoot');
         inventorySummaryTableBody.parentNode.appendChild(footer);
     }
-    // UPDATED: Colspan is now 4
+    // UPDATED: Colspan is now 4, removed revenue/profit
     footer.innerHTML = `
         <tr>
             <td colspan="4" style="text-align: right; font-weight: bold;">${t('reports_table_total_value')}:</td>
@@ -117,6 +119,7 @@ async function generateInventorySummaryReport() {
             const productName = product.name;
             const categoryId = product.category_id || 'cat_0';
             const categoryName = allCategories[categoryId] || 'N/A';
+            // REMOVED salesPrice
             const sizes = inventory[barcode];
 
             // Loop through all sizes for that barcode
@@ -125,6 +128,7 @@ async function generateInventorySummaryReport() {
                 const stock = stockData.stock || 0;
                 const cost = stockData.cost || 0;
                 const totalValue = stock * cost;
+                // REMOVED totalRevenue and totalProfit
 
                 if (stock > 0) { // Only show items that are in stock
                     fullReportData.push({
@@ -134,6 +138,7 @@ async function generateInventorySummaryReport() {
                         stock: stock,
                         cost: cost,
                         totalValue: totalValue,
+                        // REMOVED sales_price, totalRevenue, totalProfit
                         categoryId: categoryId,
                         categoryName: categoryName
                     });
@@ -192,45 +197,60 @@ function exportSummaryToCsv() {
         return;
     }
 
+    // UPDATED: Removed sales/profit headers
     const headers = [
-        t('reports_table_category'),
-        t('reports_table_item_size'),
-        t('reports_table_current_stock'),
-        t('reports_table_cost_ea'),
-        t('reports_table_total_value')
+        "barcode",
+        "product_name",
+        "size",
+        "category_id",
+        "category_name",
+        "current_stock",
+        "cost_each",
+        "total_value"
     ];
     const csvRows = [headers.join(",")];
+
+    // Function to ensure CSV cell is safe
+    const escapeCsvCell = (cell) => {
+        const strCell = String(cell);
+        if (strCell.includes(',')) {
+            return `"${strCell.replace(/"/g, '""')}"`;
+        }
+        return strCell;
+    };
 
     let grandTotalValue = 0;
 
     // Use the *currently filtered* data
     currentFilteredReportData.forEach(item => {
-        const itemName = `"${item.name} (${item.size})"`;
+        grandTotalValue += item.totalValue;
+
+        // UPDATED: Removed sales/profit values
         const values = [
-            `"${item.categoryName}"`,
-            itemName,
+            item.barcode,
+            escapeCsvCell(item.name),
+            escapeCsvCell(item.size),
+            item.categoryId,
+            escapeCsvCell(item.categoryName),
             item.stock,
             item.cost.toFixed(2),
             item.totalValue.toFixed(2)
         ];
         csvRows.push(values.join(","));
-        grandTotalValue += item.totalValue;
     });
 
-    // Add footer row
+    // UPDATED: Simplified footer
     csvRows.push(""); // Blank line
-    csvRows.push(`,,,${t('reports_table_total_value')}:,${grandTotalValue.toFixed(2)}`);
+    csvRows.push(`,,,,,,${t('reports_table_total_value')}:,${grandTotalValue.toFixed(2)}`);
 
-    // --- THIS IS THE FIX ---
-    // Add the UTF-8 BOM character at the beginning
+    // Add the UTF-8 BOM character
     const csvString = "\uFEFF" + csvRows.join("\n");
-    // --- END OF FIX ---
 
     const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "inventory_summary.csv");
+    link.setAttribute("download", "inventory_value_summary.csv");
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

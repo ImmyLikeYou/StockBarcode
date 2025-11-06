@@ -140,6 +140,17 @@ body {
 }
 
 
+/* --- NEW: Export Note --- */
+
+.export-note {
+    font-size: 0.85em;
+    color: #6c757d;
+    text-align: right;
+    margin-top: -15px;
+    margin-bottom: 15px;
+}
+
+
 /* Table Styles */
 
 #table-container {
@@ -276,7 +287,7 @@ body {
 /* --- End of Updated Search Styles --- */
 
 
-/* --- NEW: Right-align number columns --- */
+/* --- UPDATED: Right-align number columns --- */
 
 #transactionTable th:nth-child(5),
 #transactionTable td:nth-child(5),
@@ -285,7 +296,11 @@ body {
 #transactionTable th:nth-child(7),
 #transactionTable td:nth-child(7),
 #transactionTable th:nth-child(8),
-#transactionTable td:nth-child(8) {
+#transactionTable td:nth-child(8),
+#transactionTable th:nth-child(9),
+#transactionTable td:nth-child(9),
+#transactionTable th:nth-child(10),
+#transactionTable td:nth-child(10) {
     text-align: right;
 }
 

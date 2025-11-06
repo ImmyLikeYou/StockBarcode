@@ -1,6 +1,11 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const {
+    app,
+    BrowserWindow,
+    ipcMain
+} = require('electron');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs').promises; // <-- Use promises-based fs
+const os = require('os'); // <-- Import os for path
 
 let mainWindow;
 let isDev = false;
@@ -13,20 +18,30 @@ function getAppDataPath() {
     return path.join(basePath, 'app-data');
 }
 
-function getDataFilePath(filename) {
+async function getDataFilePath(filename) { // <-- Make async
     const dataDir = getAppDataPath();
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+    try {
+        await fs.mkdir(dataDir, {
+            recursive: true
+        });
+    } catch (e) {
+        console.error("Failed to create app data directory", e);
+    }
     return path.join(dataDir, filename);
 }
 
-function ensureFileExists(filePath, defaultContent) {
-    if (!fs.existsSync(filePath)) fs.writeFileSync(filePath, defaultContent);
+async function ensureFileExists(filePath, defaultContent) { // <-- Make async
+    try {
+        await fs.access(filePath);
+    } catch {
+        await fs.writeFile(filePath, defaultContent);
+    }
 }
 
-function loadFile(filePath) {
-    ensureFileExists(filePath, filePath.endsWith('transactions.json') ? '[]' : '{}');
+async function loadFile(filePath) { // <-- Make async
     try {
-        const rawData = fs.readFileSync(filePath);
+        await ensureFileExists(filePath, filePath.endsWith('transactions.json') ? '[]' : '{}');
+        const rawData = await fs.readFile(filePath);
         if (rawData.length === 0) {
             return filePath.endsWith('transactions.json') ? [] : {};
         }
@@ -45,11 +60,20 @@ function loadFile(filePath) {
     }
 }
 
-function saveFile(filePath, data) {
+// --- NEW: Atomic Save Function ---
+async function saveFile(filePath, data) { // <-- Make async and atomic
+    const tempPath = filePath + ".tmp";
     try {
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+        await fs.writeFile(tempPath, JSON.stringify(data, null, 2));
+        await fs.rename(tempPath, filePath);
     } catch (error) {
         console.error(`Error writing ${filePath}:`, error);
+        // If rename fails, try to delete the temp file
+        try {
+            await fs.unlink(tempPath);
+        } catch (unlinkError) {
+            console.error(`Error deleting temp file ${tempPath}:`, unlinkError);
+        }
     }
 }
 
@@ -65,7 +89,14 @@ function createWindow() {
     }
     candidates.push(path.join(__dirname, 'frontend', 'barcode_receiver.html'));
 
-    let entryFile = candidates.find((p) => fs.existsSync(p));
+    let entryFile = candidates.find((p) => {
+        try {
+            return require('fs').existsSync(p); // Use sync fs just for this check
+        } catch {
+            return false;
+        }
+    });
+
     if (!entryFile) {
         console.error('❌ Frontend not found. Looked in:');
         candidates.forEach((p) => console.error('   -', p));
@@ -81,7 +112,7 @@ function createWindow() {
         },
     });
 
-    if (entryFile && fs.existsSync(entryFile)) {
+    if (entryFile) {
         mainWindow.loadFile(entryFile).catch((err) => {
             console.error('❌ Failed to load HTML file:', err);
             mainWindow.loadURL('data:text/html,<h2>UI failed to load</h2>');
@@ -90,11 +121,13 @@ function createWindow() {
         mainWindow.loadURL('data:text/html,<h2>Frontend not found</h2>');
     }
 
-    if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
+    if (isDev) mainWindow.webContents.openDevTools({
+        mode: 'detach'
+    });
 }
 
 // --- Main logic ---
-async function init() {
+async function init() { // <-- Make async
     try {
         isDev = require('electron-is-dev');
     } catch (err) {
@@ -106,121 +139,163 @@ async function init() {
         }
     }
 
-    const INVENTORY_PATH = getDataFilePath('inventory.json');
-    const TRANSACTIONS_PATH = getDataFilePath('transactions.json');
-    const PRODUCTS_PATH = getDataFilePath('products.json');
-    const CATEGORIES_PATH = getDataFilePath('categories.json');
+    // --- Use await with the async version ---
+    const INVENTORY_PATH = await getDataFilePath('inventory.json');
+    const TRANSACTIONS_PATH = await getDataFilePath('transactions.json');
+    const PRODUCTS_PATH = await getDataFilePath('products.json');
+    const CATEGORIES_PATH = await getDataFilePath('categories.json');
 
-    ensureFileExists(INVENTORY_PATH, '{}');
-    ensureFileExists(TRANSACTIONS_PATH, '[]');
-    ensureFileExists(PRODUCTS_PATH, '{}');
-    ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
+    await ensureFileExists(INVENTORY_PATH, '{}');
+    await ensureFileExists(TRANSACTIONS_PATH, '[]');
+    await ensureFileExists(PRODUCTS_PATH, '{}');
+    await ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
 
+    // --- Convert all IPC handlers to async and use await for file I/O ---
 
-    ipcMain.handle('load-data', async() => ({
-        inventory: loadFile(INVENTORY_PATH),
-        transactions: loadFile(TRANSACTIONS_PATH),
-        products: loadFile(PRODUCTS_PATH),
+    ipcMain.handle('load-data', async () => ({
+        inventory: await loadFile(INVENTORY_PATH),
+        transactions: await loadFile(TRANSACTIONS_PATH),
+        products: await loadFile(PRODUCTS_PATH),
     }));
 
-    ipcMain.handle('get-categories', async() => {
-        return loadFile(CATEGORIES_PATH);
+    ipcMain.handle('get-categories', async () => {
+        return await loadFile(CATEGORIES_PATH);
     });
 
-    ipcMain.handle('add-category', async(event, categoryName) => {
+    ipcMain.handle('add-category', async (event, categoryName) => {
         if (!categoryName) {
-            throw JSON.stringify({ message: 'error_category_name_empty' });
+            throw JSON.stringify({
+                message: 'error_category_name_empty'
+            });
         }
-        const categories = loadFile(CATEGORIES_PATH);
+        const categories = await loadFile(CATEGORIES_PATH);
         const newId = `cat_${Date.now()}`;
         categories[newId] = categoryName;
-        saveFile(CATEGORIES_PATH, categories);
-        return { id: newId, name: categoryName };
+        await saveFile(CATEGORIES_PATH, categories);
+        return {
+            id: newId,
+            name: categoryName
+        };
     });
 
-    // --- NEW: Update Category ---
-    ipcMain.handle('update-category', async(event, { id, newName }) => {
+    ipcMain.handle('update-category', async (event, {
+        id,
+        newName
+    }) => {
         if (!id || !newName) {
-            throw JSON.stringify({ message: 'error_category_name_empty' });
+            throw JSON.stringify({
+                message: 'error_category_name_empty'
+            });
         }
         if (id === 'cat_0') {
-            throw JSON.stringify({ message: 'error_category_delete_default' });
+            throw JSON.stringify({
+                message: 'error_category_delete_default'
+            });
         }
-        const categories = loadFile(CATEGORIES_PATH);
+        const categories = await loadFile(CATEGORIES_PATH);
         if (!categories[id]) {
-            throw JSON.stringify({ message: 'Category not found' });
+            throw JSON.stringify({
+                message: 'Category not found'
+            });
         }
         categories[id] = newName;
-        saveFile(CATEGORIES_PATH, categories);
-        return { id, name: newName };
+        await saveFile(CATEGORIES_PATH, categories);
+        return {
+            id,
+            name: newName
+        };
     });
 
-    // --- NEW: Delete Category (and re-assign products) ---
-    ipcMain.handle('delete-category', async(event, { id }) => {
+    ipcMain.handle('delete-category', async (event, {
+        id
+    }) => {
         if (!id) {
-            throw JSON.stringify({ message: 'Category ID is required' });
+            throw JSON.stringify({
+                message: 'Category ID is required'
+            });
         }
         if (id === 'cat_0') {
-            throw JSON.stringify({ message: 'error_category_delete_default' });
+            throw JSON.stringify({
+                message: 'error_category_delete_default'
+            });
         }
 
-        const categories = loadFile(CATEGORIES_PATH);
-        const products = loadFile(PRODUCTS_PATH);
+        const categories = await loadFile(CATEGORIES_PATH);
+        const products = await loadFile(PRODUCTS_PATH);
 
         if (!categories[id]) {
-            throw JSON.stringify({ message: 'Category not found' });
+            throw JSON.stringify({
+                message: 'Category not found'
+            });
         }
 
-        // 1. Delete the category
         delete categories[id];
 
-        // 2. Re-assign products to 'Default' (cat_0)
         for (const barcode in products) {
             if (products[barcode].category_id === id) {
                 products[barcode].category_id = 'cat_0';
             }
         }
 
-        // 3. Save both files
-        saveFile(CATEGORIES_PATH, categories);
-        saveFile(PRODUCTS_PATH, products);
+        await saveFile(CATEGORIES_PATH, categories);
+        await saveFile(PRODUCTS_PATH, products);
 
-        return { success: true, message: 'Category deleted and products reassigned.' };
+        return {
+            success: true,
+            message: 'Category deleted and products reassigned.'
+        };
     });
 
 
-    ipcMain.handle('add-product', async(event, productData) => {
-        const { productName, principalCode, typeCode, category_id, default_cost } = productData || {};
+    ipcMain.handle('add-product', async (event, productData) => {
+        // REMOVED sales_price from here
+        const {
+            productName,
+            principalCode,
+            typeCode,
+            category_id,
+            default_cost
+        } = productData || {};
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
-            throw JSON.stringify({ message: 'error_invalid_data' });
+            throw JSON.stringify({
+                message: 'error_invalid_data'
+            });
         }
 
-        const products = loadFile(PRODUCTS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+        const products = await loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
         const newId = (Object.keys(products).length + 1).toString().padStart(4, '0');
         const newBarcode = `${principalCode}${typeCode}${newId}`;
 
         if (products[newBarcode]) {
-            throw JSON.stringify({ message: 'error_barcode_collision' });
+            throw JSON.stringify({
+                message: 'error_barcode_collision'
+            });
         }
 
         products[newBarcode] = {
             name: productName,
             category_id: category_id || 'cat_0',
             default_cost: parseFloat(default_cost) || 0
+            // REMOVED sales_price field
         };
         inventory[newBarcode] = {};
 
-        saveFile(PRODUCTS_PATH, products);
-        saveFile(INVENTORY_PATH, inventory);
+        await saveFile(PRODUCTS_PATH, products);
+        await saveFile(INVENTORY_PATH, inventory);
 
-        return { name: productName, barcode: newBarcode };
+        return {
+            name: productName,
+            barcode: newBarcode
+        };
     });
 
-    ipcMain.handle('delete-product', async(event, barcode) => {
-        if (!barcode) throw JSON.stringify({ message: 'error_barcode_required' });
-        const products = loadFile(PRODUCTS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+    ipcMain.handle('delete-product', async (event, barcode) => {
+        if (!barcode) throw JSON.stringify({
+            message: 'error_barcode_required'
+        });
+        const products = await loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
         let deleted = false;
 
         if (products[barcode]) {
@@ -233,42 +308,64 @@ async function init() {
         }
 
         if (deleted) {
-            saveFile(PRODUCTS_PATH, products);
-            saveFile(INVENTORY_PATH, inventory);
-            return { success: true, message: 'Product deleted successfully' };
+            await saveFile(PRODUCTS_PATH, products);
+            await saveFile(INVENTORY_PATH, inventory);
+            return {
+                success: true,
+                message: 'Product deleted successfully'
+            };
         }
-        throw JSON.stringify({ message: 'error_product_not_found' });
+        throw JSON.stringify({
+            message: 'error_product_not_found'
+        });
     });
 
-    ipcMain.handle('clear-log', async() => {
-        saveFile(TRANSACTIONS_PATH, []);
-        return { success: true };
+    ipcMain.handle('clear-log', async () => {
+        await saveFile(TRANSACTIONS_PATH, []);
+        return {
+            success: true
+        };
     });
 
-    ipcMain.handle('get-product', async(event, barcode) => {
-        if (!barcode) throw JSON.stringify({ message: 'error_barcode_required' });
-        const products = loadFile(PRODUCTS_PATH);
+    ipcMain.handle('get-product', async (event, barcode) => {
+        if (!barcode) throw JSON.stringify({
+            message: 'error_barcode_required'
+        });
+        const products = await loadFile(PRODUCTS_PATH);
         const product = products[barcode];
-        if (!product) throw JSON.stringify({ message: 'error_product_not_found' });
+        if (!product) throw JSON.stringify({
+            message: 'error_product_not_found'
+        });
         return product;
     });
 
-    ipcMain.handle('update-product', async(event, args) => {
-        const { barcode, productName, default_cost, sizeCosts } = args || {};
+    ipcMain.handle('update-product', async (event, args) => {
+        // REMOVED sales_price from here
+        const {
+            barcode,
+            productName,
+            default_cost,
+            sizeCosts
+        } = args || {};
 
         if (!barcode || !productName) {
-            throw JSON.stringify({ message: 'error_barcode_name_required' });
+            throw JSON.stringify({
+                message: 'error_barcode_name_required'
+            });
         }
 
-        const products = loadFile(PRODUCTS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+        const products = await loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
 
         if (!products[barcode]) {
-            throw JSON.stringify({ message: 'error_product_not_found' });
+            throw JSON.stringify({
+                message: 'error_product_not_found'
+            });
         }
 
         products[barcode].name = productName;
         products[barcode].default_cost = parseFloat(default_cost) || 0;
+        // REMOVED sales_price update
 
         if (!inventory[barcode]) {
             inventory[barcode] = {};
@@ -283,18 +380,28 @@ async function init() {
             };
         }
 
-        saveFile(PRODUCTS_PATH, products);
-        saveFile(INVENTORY_PATH, inventory);
+        await saveFile(PRODUCTS_PATH, products);
+        await saveFile(INVENTORY_PATH, inventory);
 
-        return { success: true, updatedProduct: products[barcode] };
+        return {
+            success: true,
+            updatedProduct: products[barcode]
+        };
     });
 
-    ipcMain.handle('process-transaction', async(event, args) => {
-        const { lookupValue, amount, mode, size } = args;
+    ipcMain.handle('process-transaction', async (event, args) => {
+        // --- ADD totalSalesPrice ---
+        const {
+            lookupValue,
+            amount,
+            mode,
+            size,
+            totalSalesPrice
+        } = args;
 
-        const inventory = loadFile(INVENTORY_PATH);
-        const transactions = loadFile(TRANSACTIONS_PATH);
-        const products = loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
+        const transactions = await loadFile(TRANSACTIONS_PATH);
+        const products = await loadFile(PRODUCTS_PATH);
 
         const product = products[lookupValue];
         const itemName = product ? product.name : 'Unknown Item';
@@ -302,13 +409,18 @@ async function init() {
         if (!inventory[lookupValue]) {
             throw JSON.stringify({
                 message: 'error_item_not_found',
-                context: { itemCode: lookupValue }
+                context: {
+                    itemCode: lookupValue
+                }
             });
         }
 
         if (!inventory[lookupValue][size]) {
             const defaultCost = (product && product.default_cost) ? product.default_cost : 0;
-            inventory[lookupValue][size] = { stock: 0, cost: defaultCost };
+            inventory[lookupValue][size] = {
+                stock: 0,
+                cost: defaultCost
+            };
         }
 
         let currentStock = inventory[lookupValue][size].stock;
@@ -320,7 +432,10 @@ async function init() {
             if (currentStock < amount) {
                 throw JSON.stringify({
                     message: 'error_not_enough_stock',
-                    context: { item: `${itemName} (${size})`, stock: currentStock }
+                    context: {
+                        item: `${itemName} (${size})`,
+                        stock: currentStock
+                    }
                 });
             }
             newStock = currentStock - amount;
@@ -337,6 +452,10 @@ async function init() {
 
         totalCost = (logType === 'Cut') ? (newCost * transactionAmount * -1) : (newCost * transactionAmount);
 
+        // --- ADD salesPrice logic ---
+        // Only save a sales price if it was a 'Cut' transaction
+        const finalSalesPrice = (logType === 'Cut') ? (totalSalesPrice || 0) : 0;
+
         inventory[lookupValue][size] = {
             stock: newStock,
             cost: newCost
@@ -350,12 +469,13 @@ async function init() {
             type: logType,
             newStock,
             cost: newCost,
-            totalCost: totalCost
+            totalCost: totalCost,
+            totalSales: finalSalesPrice // <-- ADD THIS
         };
 
         transactions.push(newTransaction);
-        saveFile(INVENTORY_PATH, inventory);
-        saveFile(TRANSACTIONS_PATH, transactions);
+        await saveFile(INVENTORY_PATH, inventory);
+        await saveFile(TRANSACTIONS_PATH, transactions);
 
         let message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
         if (mode === 'adjust') {
@@ -366,22 +486,31 @@ async function init() {
             success: true,
             message: message,
             newTransaction,
-            updatedItem: { itemCode: lookupValue, size, newStockLevel: newStock, newCost: newCost },
+            updatedItem: {
+                itemCode: lookupValue,
+                size,
+                newStockLevel: newStock,
+                newCost: newCost
+            },
         };
     });
-    ipcMain.handle('delete-transaction', async(event, { timestamp }) => {
+
+    ipcMain.handle('delete-transaction', async (event, {
+        timestamp
+    }) => {
         if (!timestamp) {
-            throw JSON.stringify({ message: 'Transaction timestamp is required' });
+            throw JSON.stringify({
+                message: 'Transaction timestamp is required'
+            });
         }
 
-        const transactions = loadFile(TRANSACTIONS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+        const transactions = await loadFile(TRANSACTIONS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
 
         let transactionFound = false;
         let transactionIndex = -1;
-        let tx; // The transaction to be deleted
+        let tx;
 
-        // 1. Find the transaction
         for (let i = 0; i < transactions.length; i++) {
             if (transactions[i].timestamp === timestamp) {
                 tx = transactions[i];
@@ -392,31 +521,31 @@ async function init() {
         }
 
         if (!transactionFound) {
-            throw JSON.stringify({ message: 'error_delete_transaction' });
+            throw JSON.stringify({
+                message: 'error_delete_transaction'
+            });
         }
 
-        // 2. Revert the stock change
         const sizeMatch = tx.itemName.match(/\(([^)]+)\)$/);
         const size = sizeMatch ? sizeMatch[1] : null;
 
         if (!size || !inventory[tx.itemCode] || !inventory[tx.itemCode][size]) {
-            // This should not happen if data is consistent, but it's a good safeguard
             console.error(`Could not find inventory item for ${tx.itemCode} (${size}) to revert stock.`);
-            throw JSON.stringify({ message: 'error_item_not_found_in_inventory' });
+            throw JSON.stringify({
+                message: 'error_item_not_found_in_inventory'
+            });
         }
 
-        // This works for "Added" (amount is +), "Cut" (amount is -), and "Adjusted" (amount is delta)
-        // Reverting is as simple as subtracting the transaction's "amount"
         inventory[tx.itemCode][size].stock -= tx.amount;
-
-        // 3. Remove the transaction from the log
         transactions.splice(transactionIndex, 1);
 
-        // 4. Save both files
-        saveFile(INVENTORY_PATH, inventory);
-        saveFile(TRANSACTIONS_PATH, transactions);
+        await saveFile(INVENTORY_PATH, inventory);
+        await saveFile(TRANSACTIONS_PATH, transactions);
 
-        return { success: true, message: 'Transaction deleted and stock reverted.' };
+        return {
+            success: true,
+            message: 'Transaction deleted and stock reverted.'
+        };
     });
 
     createWindow();
@@ -426,7 +555,11 @@ async function init() {
     });
 }
 
-app.whenReady().then(init);
+// --- Use .then() and .catch() for the top-level async init ---
+app.whenReady().then(init).catch(err => {
+    console.error("Failed to initialize app:", err);
+    app.quit();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

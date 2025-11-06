@@ -1,5 +1,13 @@
-import { addProduct, getCategories } from './_api.js';
-import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
+import {
+    addProduct,
+    getCategories
+} from './_api.js';
+import {
+    initializeI18n,
+    setLanguage,
+    t,
+    parseError
+} from './i18n.js';
 
 /**
  * Loads categories into the dropdown.
@@ -26,7 +34,10 @@ async function loadCategories(categorySelect, errorMessage) {
         }
     } catch (err) {
         console.error('Error loading categories:', err);
-        const { key, context } = parseError(err);
+        const {
+            key,
+            context
+        } = parseError(err);
         errorMessage.textContent = t(key, context);
     }
 }
@@ -46,6 +57,7 @@ async function initializeApp() {
     const typeCode = document.getElementById('typeCode');
     const categorySelect = document.getElementById('productCategory');
     const defaultCostInput = document.getElementById('defaultCost');
+    // REMOVED salesPriceInput
     const resultDiv = document.getElementById('result');
     const resultName = document.getElementById('resultName');
     const newBarcodeDisplay = document.getElementById('newBarcodeDisplay');
@@ -69,6 +81,7 @@ async function initializeApp() {
             typeCode: typeCode.value,
             category_id: categorySelect.value,
             default_cost: parseFloat(defaultCostInput.value) || 0
+            // REMOVED sales_price
         };
 
         try {
@@ -91,10 +104,14 @@ async function initializeApp() {
             addForm.reset();
             categorySelect.value = 'cat_0';
             defaultCostInput.value = '0';
+            // REMOVED salesPriceInput.value = '0';
 
         } catch (err) {
             console.error('Error creating product:', err);
-            const { key, context } = parseError(err);
+            const {
+                key,
+                context
+            } = parseError(err);
             errorMessage.textContent = t(key, context);
             resultDiv.style.display = 'block';
         }
@@ -125,7 +142,9 @@ async function initializeApp() {
 
         } catch (e) {
             console.error("Error saving barcode PNG:", e);
-            errorMessage.textContent = t('error_save_png', { message: e.message });
+            errorMessage.textContent = t('error_save_png', {
+                message: e.message
+            });
             resultDiv.style.display = 'block';
         }
     });

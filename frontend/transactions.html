@@ -97,6 +97,8 @@
                 <button id="exportButton" data-i18n-key="transactions_export_csv">Export to CSV</button>
             </div>
 
+            <p class="export-note" data-i18n-key="export_data_note">Note: CSV export is formatted as raw data for analysis.</p>
+
             <div id="table-container">
                 <table id="transactionTable">
                     <thead>
@@ -108,13 +110,15 @@
                             <th data-i18n-key="transactions_table_amount">Amount</th>
                             <th data-i18n-key="transactions_table_cost">Cost (ea.)</th>
                             <th data-i18n-key="transactions_table_total_cost">Total Cost</th>
+                            <th data-i18n-key="transactions_table_sales">Total Sales</th>
+                            <th data-i18n-key="transactions_table_profit">Profit</th>
                             <th data-i18n-key="transactions_table_new_stock">New Stock</th>
                             <th data-i18n-key="transactions_table_delete">Delete</th>
                         </tr>
                     </thead>
                     <tbody id="transactionTableBody">
                         <tr>
-                            <td colspan="9" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
+                            <td colspan="11" style="text-align: center;" data-i18n-key="transactions_loading">Loading...</td>
                         </tr>
                     </tbody>
                 </table>

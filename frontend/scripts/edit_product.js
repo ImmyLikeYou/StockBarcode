@@ -1,7 +1,19 @@
 // edit_product.js
-import { getProduct, updateProduct, loadData } from './_api.js';
-import { navigateTo, getRouteParams } from './route_handler.js';
-import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
+import {
+    getProduct,
+    updateProduct,
+    loadData
+} from './_api.js';
+import {
+    navigateTo,
+    getRouteParams
+} from './route_handler.js';
+import {
+    initializeI18n,
+    setLanguage,
+    t,
+    parseError
+} from './i18n.js';
 
 // --- MODIFIED: Add new sizes to match your list ---
 const ALL_SIZES = ["F", "M", "L", "XL", "2L", "3L", "4L", "5L", "6L", "3XL", "4XL", "5XL", "6XL"];
@@ -10,6 +22,7 @@ const editForm = document.getElementById('editProductForm');
 const productBarcodeEl = document.getElementById('productBarcode');
 const productNameInput = document.getElementById('productName');
 const defaultCostInput = document.getElementById('defaultCost');
+// REMOVED salesPriceInput
 const sizeCostGridContainer = document.getElementById('size-cost-grid-container');
 const messageDiv = document.getElementById('message');
 
@@ -38,6 +51,7 @@ async function loadProductDetails(barcode) {
         productBarcodeEl.value = productBarcodeValue;
         productNameInput.value = productData.name;
         defaultCostInput.value = productData.default_cost || 0;
+        // REMOVED salesPriceInput.value
 
         // 2. Dynamically create and populate size-cost inputs
         sizeCostGridContainer.innerHTML = ''; // Clear any placeholders
@@ -69,7 +83,10 @@ async function loadProductDetails(barcode) {
 
     } catch (err) {
         console.error('Error loading product details:', err);
-        const { key, context } = parseError(err);
+        const {
+            key,
+            context
+        } = parseError(err);
         showMessage(t(key, context), 'error');
         editForm.style.display = 'none';
     }
@@ -78,13 +95,14 @@ async function loadProductDetails(barcode) {
 /**
  * Handle form submission
  */
-editForm.addEventListener('submit', async(event) => {
+editForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     messageDiv.style.display = 'none';
 
     const barcode = productBarcodeEl.value.trim();
     const newName = productNameInput.value.trim();
     const newDefaultCost = parseFloat(defaultCostInput.value) || 0;
+    // REMOVED newSalesPrice
 
     if (!barcode || !newName) {
         showMessage(t('error_name_empty'), 'error');
@@ -104,6 +122,7 @@ editForm.addEventListener('submit', async(event) => {
             barcode: barcode,
             productName: newName,
             default_cost: newDefaultCost,
+            // REMOVED sales_price
             sizeCosts: sizeCosts
         });
 
@@ -113,7 +132,10 @@ editForm.addEventListener('submit', async(event) => {
         }, 1500);
     } catch (err) {
         console.error('Error updating product:', err);
-        const { key, context } = parseError(err);
+        const {
+            key,
+            context
+        } = parseError(err);
         showMessage(t(key, context), 'error');
     }
 });

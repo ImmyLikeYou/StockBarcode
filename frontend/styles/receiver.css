@@ -758,3 +758,17 @@ input[type="number"] {
 
 
 /* --- END MODIFICATION --- */
+
+/* --- Sales Price Input --- */
+#salesPriceContainer {
+    transition: all 0.3s ease-in-out;
+    overflow: hidden;
+    opacity: 0;
+    max-height: 0;
+}
+
+#salesPriceContainer.visible {
+    opacity: 1;
+    max-height: 100px;
+    /* Adjust as needed */
+}

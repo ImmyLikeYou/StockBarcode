@@ -27,6 +27,8 @@
     "inventory_size_title": "ขนาด:",
     "inventory_size_one_size": "ขนาดเดียว",
     "inventory_amount_title": "จำนวนธุรกรรม:",
+    "inventory_sales_price_title": "ราคาขายรวม:",
+    "inventory_sales_price_placeholder": "ป้อนราคารวมสำหรับ-การขายนี้",
     "inventory_current_stock": "สต็อกปัจจุบัน",
     "inventory_transaction_log": "บันทึกธุรกรรม",
     "inventory_filter_date": "กรองตามวันที่:",
@@ -183,5 +185,13 @@
     "transactions_summary_cut": "สินค้าที่ตัด",
     "transactions_summary_adjusted": "เปลี่ยนแปลงสุทธิ",
     "transactions_table_total_cost": "ทุนทั้งหมด",
+    "transactions_table_total_add": "มูลค่าเพิ่มรวม:",
+    "transactions_table_total_cut": "มูลค่าตัดรวม:",
+    "transactions_table_grand_total": "มูลค่ารวมสุทธิ:",
+    "transactions_table_sales": "ยอดขายรวม",
+    "transactions_table_profit": "กำไร",
+    "transactions_table_total_sales": "มูลค่าการขายรวม:",
+    "transactions_table_total_profit": "กำไรรวม:",
+    "export_data_note": "หมายเหตุ: CSV ที่ส่งออกถูกจัดรูปแบบเป็นข้อมูลดิบสำหรับการวิเคราะห์",
     "inventory_filter_all_categories": "ทุกหมวดหมู่"
 }

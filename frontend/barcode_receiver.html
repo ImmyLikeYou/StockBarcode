@@ -93,7 +93,13 @@
                 <h3 data-i18n-key="inventory_amount_title">Transaction Amount:</h3>
                 <div> <input type="number" id="transactionAmountInput" value="1" min="1" step="1"> </div>
 
-            </div>
+                <div id="salesPriceContainer">
+                    <h3 data-i18n-key="inventory_sales_price_title">Total Sales Price:</h3>
+                    <div>
+                        <input type="number" id="transactionSalesPriceInput" value="0" min="0" step="0.01" data-i18n-key="inventory_sales_price_placeholder" data-i18n-placeholder="true">
+                    </div>
+                </div>
+                </div>
         </div>
         <div id="bottom-container">
             <div id="inventory-container">

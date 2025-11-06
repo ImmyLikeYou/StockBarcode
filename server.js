@@ -1,18 +1,49 @@
 // --- 1. Setup ---
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
+const fs = require('fs').promises; // <-- Use promises-based fs
 const path = require('path');
 const os = require('os');
 const app = express();
-const PORT = 3001; // <-- This is the only change
+const PORT = 3001;
 const APP_NAME = 'BarcodeInventorySystem';
 
-// --- 2. File Paths ---
-const INVENTORY_PATH = getDataFilePath('inventory.json');
-const TRANSACTIONS_PATH = getDataFilePath('transactions.json');
-const PRODUCTS_PATH = getDataFilePath('products.json');
-const CATEGORIES_PATH = getDataFilePath('categories.json');
+// --- 2. File Paths (Must be resolved before async routes) ---
+// We use sync methods here ONLY to set up initial paths.
+// All route handling will use async.
+function getSyncAppDataPath() {
+    const platform = os.platform();
+    let basePath;
+    if (platform === 'win32') {
+        basePath = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    } else if (platform === 'darwin') {
+        basePath = path.join(os.homedir(), 'Library', 'Application Support');
+    } else {
+        basePath = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
+    }
+    return path.join(basePath, APP_NAME);
+}
+
+function getSyncDataFilePath(filename) {
+    const localDataDir = path.join(__dirname, 'app-data');
+    if (require('fs').existsSync(localDataDir)) {
+        return path.join(localDataDir, filename);
+    }
+    const appDataDir = getSyncAppDataPath();
+    const dataDir = path.join(appDataDir, 'app-data');
+    if (!require('fs').existsSync(dataDir)) {
+        require('fs').mkdirSync(dataDir, {
+            recursive: true
+        });
+        console.log(`Created application data directory: ${dataDir}`);
+    }
+    return path.join(dataDir, filename);
+}
+
+const INVENTORY_PATH = getSyncDataFilePath('inventory.json');
+const TRANSACTIONS_PATH = getSyncDataFilePath('transactions.json');
+const PRODUCTS_PATH = getSyncDataFilePath('products.json');
+const CATEGORIES_PATH = getSyncDataFilePath('categories.json');
 
 console.log('Using data files:');
 console.log('  INVENTORY_PATH ->', INVENTORY_PATH);
@@ -26,53 +57,24 @@ app.use(cors());
 app.use('/locales', express.static(path.join(__dirname, 'frontend/locales')));
 app.use(express.static(path.join(__dirname, 'frontend')));
 
-// --- 4. Helper Functions ---
-function getAppDataPath() {
-    const platform = os.platform();
-    let basePath;
-    if (platform === 'win32') {
-        basePath = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-    } else if (platform === 'darwin') {
-        basePath = path.join(os.homedir(), 'Library', 'Application Support');
-    } else {
-        basePath = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-    }
-    return path.join(basePath, APP_NAME);
-}
+// --- 4. Helper Functions (Async) ---
 
-function ensureFileExists(filePath, defaultContent) {
-    if (!fs.existsSync(filePath)) {
-        console.log(`Creating initial data file: ${filePath}`);
-        fs.writeFileSync(filePath, defaultContent);
-    }
-}
-
-ensureFileExists(INVENTORY_PATH, '{}');
-ensureFileExists(TRANSACTIONS_PATH, '[]');
-ensureFileExists(PRODUCTS_PATH, '{}');
-ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
-
-function getDataFilePath(filename) {
-    const localDataDir = path.join(__dirname, 'app-data');
-    if (fs.existsSync(localDataDir)) {
-        return path.join(localDataDir, filename);
-    }
-    const appDataDir = getAppDataPath();
-    const dataDir = path.join(appDataDir, 'app-data');
-    if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-        console.log(`Created application data directory: ${dataDir}`);
-    }
-    return path.join(dataDir, filename);
-}
-
-function loadFile(filePath) {
-    const rawData = fs.readFileSync(filePath);
-    if (rawData.length === 0) {
-        return filePath.endsWith('transactions.json') ? [] : {};
-    }
-
+async function ensureFileExists(filePath, defaultContent) { // <-- Make async
     try {
+        await fs.access(filePath);
+    } catch {
+        console.log(`Creating initial data file: ${filePath}`);
+        await fs.writeFile(filePath, defaultContent);
+    }
+}
+
+async function loadFile(filePath) { // <-- Make async
+    try {
+        const rawData = await fs.readFile(filePath);
+        if (rawData.length === 0) {
+            return filePath.endsWith('transactions.json') ? [] : {};
+        }
+
         const data = JSON.parse(rawData);
 
         if (filePath.endsWith('transactions.json') && !Array.isArray(data)) {
@@ -87,13 +89,26 @@ function loadFile(filePath) {
     }
 }
 
-function saveFile(filePath, data) {
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+// --- NEW: Atomic Save Function ---
+async function saveFile(filePath, data) { // <-- Make async and atomic
+    const tempPath = filePath + ".tmp";
+    try {
+        await fs.writeFile(tempPath, JSON.stringify(data, null, 2));
+        await fs.rename(tempPath, filePath);
+    } catch (error) {
+        console.error(`Error writing ${filePath}:`, error);
+        // If rename fails, try to delete the temp file
+        try {
+            await fs.unlink(tempPath);
+        } catch (unlinkError) {
+            console.error(`Error deleting temp file ${tempPath}:`, unlinkError);
+        }
+    }
 }
 
 // --- 5. API Endpoints (Routes) ---
 
-// View Routes
+// View Routes (remain synchronous)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'barcode_receiver.html'));
 });
@@ -107,20 +122,10 @@ app.get('/transactions', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'transactions.html'));
 });
 app.get('/item-history/:barcode', (req, res) => {
-    try {
-        res.sendFile(path.join(__dirname, 'frontend', 'item_history.html'));
-    } catch (err) {
-        console.error("Error serving item history page:", err);
-        res.status(500).send('Server Error');
-    }
+    res.sendFile(path.join(__dirname, 'frontend', 'item_history.html'));
 });
 app.get('/edit-product/:barcode', (req, res) => {
-    try {
-        res.sendFile(path.join(__dirname, 'frontend', 'edit_product.html'));
-    } catch (err) {
-        console.error("Error serving edit page:", err);
-        res.status(500).send('Server Error');
-    }
+    res.sendFile(path.join(__dirname, 'frontend', 'edit_product.html'));
 });
 app.get('/reports', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'reports.html'));
@@ -130,25 +135,37 @@ app.get('/categories', (req, res) => {
 });
 
 
-// API Routes
-app.put('/api/product/:barcode', (req, res) => {
+// API Routes (convert to async and use await)
+app.put('/api/product/:barcode', async (req, res) => { // <-- async
     try {
-        const { barcode } = req.params;
-        const { productName, default_cost, sizeCosts } = req.body;
+        const {
+            barcode
+        } = req.params;
+        // REMOVED sales_price
+        const {
+            productName,
+            default_cost,
+            sizeCosts
+        } = req.body;
 
         if (!productName) {
-            return res.status(400).json({ message: 'error_name_empty' });
+            return res.status(400).json({
+                message: 'error_name_empty'
+            });
         }
 
-        const products = loadFile(PRODUCTS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        const inventory = await loadFile(INVENTORY_PATH); // <-- await
 
         if (!products[barcode]) {
-            return res.status(404).json({ message: 'error_product_not_found' });
+            return res.status(404).json({
+                message: 'error_product_not_found'
+            });
         }
 
         products[barcode].name = productName;
         products[barcode].default_cost = parseFloat(default_cost) || 0;
+        // REMOVED sales_price
 
         if (!inventory[barcode]) {
             inventory[barcode] = {};
@@ -165,109 +182,156 @@ app.put('/api/product/:barcode', (req, res) => {
             }
         }
 
-        saveFile(PRODUCTS_PATH, products);
-        saveFile(INVENTORY_PATH, inventory);
+        await saveFile(PRODUCTS_PATH, products); // <-- await
+        await saveFile(INVENTORY_PATH, inventory); // <-- await
 
-        res.status(200).json({ message: 'Product updated successfully', updatedProduct: products[barcode] });
+        res.status(200).json({
+            message: 'Product updated successfully',
+            updatedProduct: products[barcode]
+        });
 
     } catch (err) {
         console.error("Error updating product:", err);
-        res.status(500).json({ message: 'Server error updating product.' });
+        res.status(500).json({
+            message: 'Server error updating product.'
+        });
     }
 });
 
-app.get('/api/product/:barcode', (req, res) => {
+app.get('/api/product/:barcode', async (req, res) => { // <-- async
     try {
-        const { barcode } = req.params;
-        const products = loadFile(PRODUCTS_PATH);
+        const {
+            barcode
+        } = req.params;
+        const products = await loadFile(PRODUCTS_PATH); // <-- await
         const product = products[barcode];
-        if (!product) return res.status(404).json({ message: 'error_product_not_found' });
+        if (!product) return res.status(404).json({
+            message: 'error_product_not_found'
+        });
         res.json(product);
     } catch (err) {
         console.error('Error fetching product:', err);
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({
+            message: 'Server error'
+        });
     }
 });
 
-app.get('/api/data', (req, res) => {
+app.get('/api/data', async (req, res) => { // <-- async
     try {
-        const inventory = loadFile(INVENTORY_PATH);
-        const transactions = loadFile(TRANSACTIONS_PATH);
-        const products = loadFile(PRODUCTS_PATH);
-        res.json({ inventory, transactions, products });
+        const inventory = await loadFile(INVENTORY_PATH); // <-- await
+        const transactions = await loadFile(TRANSACTIONS_PATH); // <-- await
+        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        res.json({
+            inventory,
+            transactions,
+            products
+        });
     } catch (err) {
         console.error('Error loading data:', err);
-        res.status(500).json({ message: 'Error loading data from files.' });
+        res.status(500).json({
+            message: 'Error loading data from files.'
+        });
     }
 });
 
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', async (req, res) => { // <-- async
     try {
-        const categories = loadFile(CATEGORIES_PATH);
+        const categories = await loadFile(CATEGORIES_PATH); // <-- await
         res.json(categories);
     } catch (err) {
         console.error('Error loading categories:', err);
-        res.status(500).json({ message: 'Error loading categories.' });
+        res.status(500).json({
+            message: 'Error loading categories.'
+        });
     }
 });
 
-app.post('/api/category', (req, res) => {
+app.post('/api/category', async (req, res) => { // <-- async
     try {
-        const { categoryName } = req.body;
+        const {
+            categoryName
+        } = req.body;
         if (!categoryName) {
-            return res.status(400).json({ message: 'error_category_name_empty' });
+            return res.status(400).json({
+                message: 'error_category_name_empty'
+            });
         }
-        const categories = loadFile(CATEGORIES_PATH);
+        const categories = await loadFile(CATEGORIES_PATH); // <-- await
         const newId = `cat_${Date.now()}`;
         categories[newId] = categoryName;
-        saveFile(CATEGORIES_PATH, categories);
-        res.status(201).json({ id: newId, name: categoryName });
+        await saveFile(CATEGORIES_PATH, categories); // <-- await
+        res.status(201).json({
+            id: newId,
+            name: categoryName
+        });
     } catch (err) {
         console.error('Server error creating category:', err);
-        res.status(500).json({ message: 'Server error creating category.' });
+        res.status(500).json({
+            message: 'Server error creating category.'
+        });
     }
 });
 
-// --- NEW: Update Category ---
-app.put('/api/category/:id', (req, res) => {
+app.put('/api/category/:id', async (req, res) => { // <-- async
     try {
-        const { id } = req.params;
-        const { newName } = req.body;
+        const {
+            id
+        } = req.params;
+        const {
+            newName
+        } = req.body;
 
         if (!newName) {
-            return res.status(400).json({ message: 'error_category_name_empty' });
+            return res.status(400).json({
+                message: 'error_category_name_empty'
+            });
         }
         if (id === 'cat_0') {
-            return res.status(403).json({ message: 'error_category_delete_default' });
+            return res.status(403).json({
+                message: 'error_category_delete_default'
+            });
         }
 
-        const categories = loadFile(CATEGORIES_PATH);
+        const categories = await loadFile(CATEGORIES_PATH); // <-- await
         if (!categories[id]) {
-            return res.status(404).json({ message: 'Category not found' });
+            return res.status(404).json({
+                message: 'Category not found'
+            });
         }
 
         categories[id] = newName;
-        saveFile(CATEGORIES_PATH, categories);
-        res.status(200).json({ id, name: newName });
+        await saveFile(CATEGORIES_PATH, categories); // <-- await
+        res.status(200).json({
+            id,
+            name: newName
+        });
     } catch (err) {
         console.error('Server error updating category:', err);
-        res.status(500).json({ message: 'Server error updating category' });
+        res.status(500).json({
+            message: 'Server error updating category'
+        });
     }
 });
 
-// --- NEW: Delete Category ---
-app.delete('/api/category/:id', (req, res) => {
+app.delete('/api/category/:id', async (req, res) => { // <-- async
     try {
-        const { id } = req.params;
+        const {
+            id
+        } = req.params;
         if (id === 'cat_0') {
-            return res.status(403).json({ message: 'error_category_delete_default' });
+            return res.status(403).json({
+                message: 'error_category_delete_default'
+            });
         }
 
-        const categories = loadFile(CATEGORIES_PATH);
-        const products = loadFile(PRODUCTS_PATH);
+        const categories = await loadFile(CATEGORIES_PATH); // <-- await
+        const products = await loadFile(PRODUCTS_PATH); // <-- await
 
         if (!categories[id]) {
-            return res.status(404).json({ message: 'Category not found' });
+            return res.status(404).json({
+                message: 'Category not found'
+            });
         }
 
         delete categories[id];
@@ -278,54 +342,78 @@ app.delete('/api/category/:id', (req, res) => {
             }
         }
 
-        saveFile(CATEGORIES_PATH, categories);
-        saveFile(PRODUCTS_PATH, products);
+        await saveFile(CATEGORIES_PATH, categories); // <-- await
+        await saveFile(PRODUCTS_PATH, products); // <-- await
 
-        res.status(200).json({ success: true, message: 'Category deleted and products reassigned.' });
+        res.status(200).json({
+            success: true,
+            message: 'Category deleted and products reassigned.'
+        });
     } catch (err) {
         console.error('Server error deleting category:', err);
-        res.status(500).json({ message: 'Server error deleting category' });
+        res.status(500).json({
+            message: 'Server error deleting category'
+        });
     }
 });
 
-app.post('/api/product', (req, res) => {
+app.post('/api/product', async (req, res) => { // <-- async
     try {
-        const { productName, principalCode, typeCode, category_id, default_cost } = req.body;
+        // REMOVED sales_price
+        const {
+            productName,
+            principalCode,
+            typeCode,
+            category_id,
+            default_cost
+        } = req.body;
         if (!productName || !principalCode || !typeCode || principalCode.length !== 4 || typeCode.length !== 4) {
-            return res.status(400).json({ message: 'error_invalid_data' });
+            return res.status(400).json({
+                message: 'error_invalid_data'
+            });
         }
 
-        const products = loadFile(PRODUCTS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        const inventory = await loadFile(INVENTORY_PATH); // <-- await
         const newId = (Object.keys(products).length + 1).toString().padStart(4, '0');
         const newBarcode = `${principalCode}${typeCode}${newId}`;
 
         if (products[newBarcode]) {
-            return res.status(500).json({ message: 'error_barcode_collision' });
+            return res.status(500).json({
+                message: 'error_barcode_collision'
+            });
         }
 
         products[newBarcode] = {
             name: productName,
             category_id: category_id || 'cat_0',
             default_cost: parseFloat(default_cost) || 0
+            // REMOVED sales_price
         };
         inventory[newBarcode] = {};
 
-        saveFile(PRODUCTS_PATH, products);
-        saveFile(INVENTORY_PATH, inventory);
+        await saveFile(PRODUCTS_PATH, products); // <-- await
+        await saveFile(INVENTORY_PATH, inventory); // <-- await
 
-        res.status(201).json({ name: productName, barcode: newBarcode });
+        res.status(201).json({
+            name: productName,
+            barcode: newBarcode
+        });
     } catch (err) {
         console.error('Server error creating product:', err);
-        res.status(500).json({ message: 'Server error creating product.' });
+        res.status(500).json({
+            message: 'Server error creating product.'
+        });
     }
 });
 
-app.delete('/api/product/:barcode', (req, res) => {
+app.delete('/api/product/:barcode', async (req, res) => { // <-- async
     try {
-        const { barcode } = req.params;
-        const products = loadFile(PRODUCTS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+        const {
+            barcode
+        } = req.params;
+        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        const inventory = await loadFile(INVENTORY_PATH); // <-- await
         let deleted = false;
 
         if (products[barcode]) {
@@ -338,31 +426,46 @@ app.delete('/api/product/:barcode', (req, res) => {
         }
 
         if (deleted) {
-            saveFile(PRODUCTS_PATH, products);
-            saveFile(INVENTORY_PATH, inventory);
-            res.status(200).json({ message: 'Product deleted successfully' });
+            await saveFile(PRODUCTS_PATH, products); // <-- await
+            await saveFile(INVENTORY_PATH, inventory); // <-- await
+            res.status(200).json({
+                message: 'Product deleted successfully'
+            });
         } else {
-            res.status(404).json({ message: 'error_product_not_found' });
+            res.status(404).json({
+                message: 'error_product_not_found'
+            });
         }
     } catch (err) {
         console.error('Server error deleting product:', err);
-        res.status(500).json({ message: 'Server error deleting product' });
+        res.status(500).json({
+            message: 'Server error deleting product'
+        });
     }
 });
 
-app.post('/api/transaction', (req, res) => {
-    const { lookupValue, amount, mode, size } = req.body;
+app.post('/api/transaction', async (req, res) => { // <-- async
+    // --- ADD totalSalesPrice ---
+    const {
+        lookupValue,
+        amount,
+        mode,
+        size,
+        totalSalesPrice
+    } = req.body;
 
     if (!lookupValue || isNaN(amount) || !mode || !size ||
         ((mode === 'add' || mode === 'cut') && amount < 1) ||
         (mode === 'adjust' && amount < 0)) {
-        return res.status(400).json({ message: 'error_invalid_data' });
+        return res.status(400).json({
+            message: 'error_invalid_data'
+        });
     }
 
     try {
-        const inventory = loadFile(INVENTORY_PATH);
-        const transactions = loadFile(TRANSACTIONS_PATH);
-        const products = loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH); // <-- await
+        const transactions = await loadFile(TRANSACTIONS_PATH); // <-- await
+        const products = await loadFile(PRODUCTS_PATH); // <-- await
 
         const product = products[lookupValue];
         const itemName = product ? product.name : "Unknown Item";
@@ -370,18 +473,26 @@ app.post('/api/transaction', (req, res) => {
         if (!inventory.hasOwnProperty(lookupValue)) {
             return res.status(404).json({
                 message: 'error_item_not_found',
-                context: { itemCode: lookupValue }
+                context: {
+                    itemCode: lookupValue
+                }
             });
         }
 
         if (!inventory[lookupValue].hasOwnProperty(size)) {
             const defaultCost = (product && product.default_cost) ? product.default_cost : 0;
             if (mode === 'add' || mode === 'adjust') {
-                inventory[lookupValue][size] = { stock: 0, cost: defaultCost };
+                inventory[lookupValue][size] = {
+                    stock: 0,
+                    cost: defaultCost
+                };
             } else {
                 return res.status(404).json({
                     message: 'error_size_not_found',
-                    context: { size: size, item: itemName }
+                    context: {
+                        size: size,
+                        item: itemName
+                    }
                 });
             }
         }
@@ -398,7 +509,10 @@ app.post('/api/transaction', (req, res) => {
                 return res.status(400).json({
                     message: 'error_not_enough_stock',
                     errorType: 'INSUFFICIENT_STOCK',
-                    context: { item: `${itemName} (${size})`, stock: currentStock }
+                    context: {
+                        item: `${itemName} (${size})`,
+                        stock: currentStock
+                    }
                 });
             }
             newStock = currentStock - amount;
@@ -415,6 +529,10 @@ app.post('/api/transaction', (req, res) => {
 
         totalCost = (logType === 'Cut') ? (newCost * transactionAmount * -1) : (newCost * transactionAmount);
 
+        // --- ADD salesPrice logic ---
+        // Only save a sales price if it was a 'Cut' transaction
+        const finalSalesPrice = (logType === 'Cut') ? (totalSalesPrice || 0) : 0;
+
         inventory[lookupValue][size] = {
             stock: newStock,
             cost: newCost
@@ -428,12 +546,13 @@ app.post('/api/transaction', (req, res) => {
             type: logType,
             newStock: newStock,
             cost: newCost,
-            totalCost: totalCost
+            totalCost: totalCost,
+            totalSales: finalSalesPrice // <-- ADD THIS
         };
         transactions.push(newTransaction);
 
-        saveFile(INVENTORY_PATH, inventory);
-        saveFile(TRANSACTIONS_PATH, transactions);
+        await saveFile(INVENTORY_PATH, inventory); // <-- await
+        await saveFile(TRANSACTIONS_PATH, transactions); // <-- await
 
         let message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
         if (mode === 'adjust') {
@@ -443,38 +562,53 @@ app.post('/api/transaction', (req, res) => {
         res.status(200).json({
             message: message,
             newTransaction: newTransaction,
-            updatedItem: { itemCode: lookupValue, size: size, newStockLevel: newStock, newCost: newCost }
+            updatedItem: {
+                itemCode: lookupValue,
+                size: size,
+                newStockLevel: newStock,
+                newCost: newCost
+            }
         });
     } catch (err) {
         console.error('Error processing transaction:', err);
-        res.status(500).json({ message: 'Error processing transaction' });
+        res.status(500).json({
+            message: 'Error processing transaction'
+        });
     }
 });
 
-app.delete('/api/log', (req, res) => {
+app.delete('/api/log', async (req, res) => { // <-- async
     try {
-        saveFile(TRANSACTIONS_PATH, []);
-        res.status(200).json({ message: 'Transaction log cleared' });
+        await saveFile(TRANSACTIONS_PATH, []); // <-- await
+        res.status(200).json({
+            message: 'Transaction log cleared'
+        });
     } catch (err) {
         console.error('Error clearing log:', err);
-        res.status(500).json({ message: 'Error clearing log' });
+        res.status(500).json({
+            message: 'Error clearing log'
+        });
     }
 });
-app.delete('/api/transaction/:timestamp', (req, res) => {
+
+app.delete('/api/transaction/:timestamp', async (req, res) => { // <-- async
     try {
-        const { timestamp } = req.params;
+        const {
+            timestamp
+        } = req.params;
         if (!timestamp) {
-            return res.status(400).json({ message: 'Transaction timestamp is required' });
+            return res.status(400).json({
+                message: 'Transaction timestamp is required'
+            });
         }
 
-        const transactions = loadFile(TRANSACTIONS_PATH);
-        const inventory = loadFile(INVENTORY_PATH);
+        const transactions = await loadFile(TRANSACTIONS_PATH); // <-- await
+        const inventory = await loadFile(INVENTORY_PATH); // <-- await
 
         let transactionFound = false;
         let transactionIndex = -1;
-        let tx; // The transaction to be deleted
+        let tx;
 
-        // 1. Find the transaction
         for (let i = 0; i < transactions.length; i++) {
             if (transactions[i].timestamp === timestamp) {
                 tx = transactions[i];
@@ -485,37 +619,51 @@ app.delete('/api/transaction/:timestamp', (req, res) => {
         }
 
         if (!transactionFound) {
-            return res.status(404).json({ message: 'error_delete_transaction' });
+            return res.status(404).json({
+                message: 'error_delete_transaction'
+            });
         }
 
-        // 2. Revert the stock change
         const sizeMatch = tx.itemName.match(/\(([^)]+)\)$/);
         const size = sizeMatch ? sizeMatch[1] : null;
 
         if (!size || !inventory[tx.itemCode] || !inventory[tx.itemCode][size]) {
             console.error(`Could not find inventory item for ${tx.itemCode} (${size}) to revert stock.`);
-            return res.status(500).json({ message: 'error_item_not_found_in_inventory' });
+            return res.status(500).json({
+                message: 'error_item_not_found_in_inventory'
+            });
         }
 
-        // 3. Revert the stock change
         inventory[tx.itemCode][size].stock -= tx.amount;
-
-        // 4. Remove the transaction from the log
         transactions.splice(transactionIndex, 1);
 
-        // 5. Save both files
-        saveFile(INVENTORY_PATH, inventory);
-        saveFile(TRANSACTIONS_PATH, transactions);
+        await saveFile(INVENTORY_PATH, inventory); // <-- await
+        await saveFile(TRANSACTIONS_PATH, transactions); // <-- await
 
-        res.status(200).json({ success: true, message: 'Transaction deleted and stock reverted.' });
+        res.status(200).json({
+            success: true,
+            message: 'Transaction deleted and stock reverted.'
+        });
 
     } catch (err) {
         console.error('Error deleting transaction:', err);
-        res.status(500).json({ message: 'Server error deleting transaction' });
+        res.status(500).json({
+            message: 'Server error deleting transaction'
+        });
     }
 });
 
 // --- 6. Start the Server ---
-app.listen(PORT, () => {
-    console.log(`Inventory server running on http://localhost:${PORT}`);
-});
+// We must ensure the files exist before starting the server.
+async function startServer() {
+    await ensureFileExists(INVENTORY_PATH, '{}');
+    await ensureFileExists(TRANSACTIONS_PATH, '[]');
+    await ensureFileExists(PRODUCTS_PATH, '{}');
+    await ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
+
+    app.listen(PORT, () => {
+        console.log(`Inventory server running on http://localhost:${PORT}`);
+    });
+}
+
+startServer();

@@ -27,6 +27,8 @@
     "inventory_size_title": "Size:",
     "inventory_size_one_size": "One Size",
     "inventory_amount_title": "Transaction Amount:",
+    "inventory_sales_price_title": "Total Sales Price:",
+    "inventory_sales_price_placeholder": "Enter total price for this sale",
     "inventory_current_stock": "Current Stock",
     "inventory_transaction_log": "Transaction Log",
     "inventory_filter_date": "Filter by Date:",
@@ -183,6 +185,13 @@
     "transactions_summary_cut": "Items Cut",
     "transactions_summary_adjusted": "Net Change",
     "transactions_table_total_cost": "Total Cost",
+    "transactions_table_total_add": "Total Add Value:",
+    "transactions_table_total_cut": "Total Cut Value:",
+    "transactions_table_grand_total": "Grand Total Cost:",
+    "transactions_table_sales": "Total Sales",
+    "transactions_table_profit": "Profit",
+    "transactions_table_total_sales": "Total Sales Value:",
+    "transactions_table_total_profit": "Total Profit:",
+    "export_data_note": "Note: CSV export is formatted as raw data for analysis.",
     "inventory_filter_all_categories": "All Categories"
-
 }

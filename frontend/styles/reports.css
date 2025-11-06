@@ -178,6 +178,17 @@ body {
 /* --- END UPDATES --- */
 
 
+/* --- NEW: Export Note --- */
+
+.export-note {
+    font-size: 0.85em;
+    color: #6c757d;
+    text-align: right;
+    margin-top: -15px;
+    margin-bottom: 15px;
+}
+
+
 /* --- MODIFIED: Apply to both tables --- */
 
 #reportTable,
@@ -213,7 +224,7 @@ body {
 }
 
 
-/* --- UPDATED: Right-align number columns (shifted by 1) --- */
+/* --- UPDATED: Right-align number columns (removed revenue/profit) --- */
 
 #inventorySummaryTable th:nth-child(3),
 #inventorySummaryTable td:nth-child(3),

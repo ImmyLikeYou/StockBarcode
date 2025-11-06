@@ -1,6 +1,6 @@
 import { loadData, deleteTransaction } from './_api.js';
 import { initializeI18n, setLanguage, t, parseError } from './i18n.js';
-import { navigateTo } from './route_handler.js'; // <-- ADD THIS LINE
+import { navigateTo } from './route_handler.js';
 
 const transactionTableBody = document.getElementById('transactionTableBody');
 const exportButton = document.getElementById('exportButton');
@@ -77,8 +77,8 @@ async function loadTransactionData() {
     } catch (err) {
         console.error('Error loading transaction data:', err);
         const { key, context } = parseError(err);
-        // UPDATED: Colspan is now 8
-        transactionTableBody.innerHTML = `<tr><td colspan="9" style="color: red; text-align: center;">${t(key, context) || t('error_loading_transactions')}</td></tr>`;
+        // UPDATED: Colspan is now 11
+        transactionTableBody.innerHTML = `<tr><td colspan="11" style="color: red; text-align: center;">${t(key, context) || t('error_loading_transactions')}</td></tr>`;
     }
 }
 
@@ -180,14 +180,19 @@ function showSuggestions() {
 function renderTable() {
     transactionTableBody.innerHTML = '';
 
-    // --- ADDED BACK: Summary calculation variables ---
+    // --- MODIFIED: Added new total variables ---
     let totalAdded = 0;
     let totalCut = 0;
     let grandTotalCost = 0;
+    let totalAddValue = 0;
+    let totalCutValue = 0;
+    let grandTotalSales = 0; // <-- NEW
+    let grandTotalProfit = 0; // <-- NEW
+    // --- END MODIFICATION ---
 
     if (filteredTransactions.length === 0) {
-        // UPDATED: Colspan is now 8
-        transactionTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center;">${t('transactions_no_match')}</td></tr>`;
+        // UPDATED: Colspan is now 11
+        transactionTableBody.innerHTML = `<tr><td colspan="11" style="text-align: center;">${t('transactions_no_match')}</td></tr>`;
         // --- Reset summary box if no data ---
         summaryAddedEl.textContent = 0;
         summaryCutEl.textContent = 0;
@@ -233,29 +238,48 @@ function renderTable() {
             }
         }
 
-        // --- THIS IS THE FIX ---
         // 2. Check if totalCost was saved (new data), otherwise calculate it
         let totalCost = (entry.totalCost !== undefined && entry.totalCost !== null) ?
             parseFloat(entry.totalCost) :
             (entry.type === 'Cut' ? (costEach * amount * -1) : (costEach * amount));
 
-        // 3. Add to grand total
-        grandTotalCost += (isNaN(totalCost) ? 0 : totalCost);
-        // --- END FIX ---
+        const safeTotalCost = isNaN(totalCost) ? 0 : totalCost;
 
+        // --- NEW: Get Sales and Profit ---
+        const totalSales = (entry.type === 'Cut' && entry.totalSales) ? parseFloat(entry.totalSales) : 0;
+        const profit = (totalSales > 0) ? totalSales + safeTotalCost : 0; // safeTotalCost is negative for cuts
+
+        if (entry.type === 'Added') {
+            totalAddValue += safeTotalCost;
+        } else if (entry.type === 'Cut') {
+            totalCutValue += safeTotalCost;
+            grandTotalSales += totalSales; // <-- ADD
+            grandTotalProfit += profit; // <-- ADD
+        } else if (entry.type === 'Adjusted') {
+            if (amount > 0) {
+                totalAddValue += safeTotalCost;
+            } else {
+                totalCutValue += safeTotalCost;
+            }
+        }
+
+        grandTotalCost += safeTotalCost;
 
         const row = document.createElement('tr');
         row.className = (entry.type === 'Added') ? 'log-add' : (entry.type === 'Cut' ? 'log-cut' : 'log-adjust');
         row.setAttribute('data-barcode', entry.itemCode);
 
-        // UPDATED: Added totalCost cell back
+        // UPDATED: Added new cells
         row.innerHTML = `
             <td>${dateStr}</td>
             <td>${timeStr}</td>
-            <td class="clickable-cell">${entry.itemName}</td> <td>${entry.type}</td>
+            <td class="clickable-cell">${entry.itemName}</td> 
+            <td>${entry.type}</td>
             <td style="text-align: right;">${amount}</td>
             <td style="text-align: right;">${costEach.toFixed(2)}</td>
-            <td style="text-align: right;">${totalCost.toFixed(2)}</td>
+            <td style="text-align: right;">${safeTotalCost.toFixed(2)}</td>
+            <td style="text-align: right; color: blue;">${totalSales.toFixed(2)}</td>
+            <td style="text-align: right; color: ${profit >= 0 ? 'green' : '#b92100'};">${profit.toFixed(2)}</td>
             <td style="text-align: right;">${entry.newStock}</td>
             <td style="text-align: center;">
                 <button class="delete-btn" 
@@ -269,17 +293,50 @@ function renderTable() {
         transactionTableBody.appendChild(row);
     });
 
-    // --- ADDED BACK: The grandTotalCost footer row ---
+    // --- MODIFIED: Add all footer rows ---
+    const addRow = document.createElement('tr');
+    addRow.style.fontWeight = 'bold';
+    addRow.style.backgroundColor = '#f8f9fa';
+    addRow.innerHTML = `
+        <td colspan="6" style="text-align: right; color: green;">${t('transactions_table_total_add')}</td>
+        <td style="text-align: right; color: green;">${totalAddValue.toFixed(2)}</td>
+        <td colspan="4"></td>
+    `;
+    transactionTableBody.appendChild(addRow);
+
+    const cutRow = document.createElement('tr');
+    cutRow.style.fontWeight = 'bold';
+    cutRow.style.backgroundColor = '#f8f9fa';
+    cutRow.innerHTML = `
+        <td colspan="6" style="text-align: right; color: #b92100;">${t('transactions_table_total_cut')}</td>
+        <td style="text-align: right; color: #b92100;">${totalCutValue.toFixed(2)}</td>
+        <td style="text-align: right; color: blue;">${t('transactions_table_total_sales')}</td>
+        <td style="text-align: right; color: ${grandTotalProfit >= 0 ? 'green' : '#b92100'};">${t('transactions_table_total_profit')}</td>
+        <td colspan="2"></td>
+    `;
+    transactionTableBody.appendChild(cutRow);
+
+    const cutRowValues = document.createElement('tr');
+    cutRowValues.style.fontWeight = 'bold';
+    cutRowValues.style.backgroundColor = '#f8f9fa';
+    cutRowValues.innerHTML = `
+        <td colspan="7"></td>
+        <td style="text-align: right; color: blue;">${grandTotalSales.toFixed(2)}</td>
+        <td style="text-align: right; color: ${grandTotalProfit >= 0 ? 'green' : '#b92100'};">${grandTotalProfit.toFixed(2)}</td>
+        <td colspan="2"></td>
+    `;
+    transactionTableBody.appendChild(cutRowValues);
+
     const totalRow = document.createElement('tr');
     totalRow.style.fontWeight = 'bold';
-    totalRow.style.backgroundColor = '#f8f9fa';
+    totalRow.style.backgroundColor = '#f0f0f0';
     totalRow.innerHTML = `
-        <td colspan="7" style="text-align: right;">Grand Total Cost:</td>
+        <td colspan="6" style="text-align: right;">${t('transactions_table_grand_total')}</td>
         <td style="text-align: right;">${grandTotalCost.toFixed(2)}</td>
-        <td></td>
+        <td colspan="4"></td>
     `;
     transactionTableBody.appendChild(totalRow);
-    // --- END ADD BACK ---
+    // --- END MODIFICATION ---
 
 
     // --- Update Summary Box text content ---
@@ -342,19 +399,32 @@ function renderChart() {
 function exportToCsv() {
     if (filteredTransactions.length === 0) { alert(t('transactions_no_export_data')); return; }
 
-    // UPDATED: Added "Total Cost" back to headers
-    const headers = ["Date", "Time", "Item Name", "Type", "Amount", "Cost (ea.)", "Total Cost", "New Stock Level"];
+    // Phase 1: Use machine-readable headers
+    const headers = [
+        "timestamp",
+        "barcode",
+        "product_name",
+        "size",
+        "type",
+        "amount_changed",
+        "cost_each",
+        "total_cost",
+        "total_sales", // <-- NEW
+        "profit", // <-- NEW
+        "new_stock_level"
+    ];
     const csvRows = [headers.join(",")];
 
-    const dateOptions = { year: 'numeric', month: 'numeric', day: 'numeric' };
-    const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-
+    // Function to ensure CSV cell is safe
+    const escapeCsvCell = (cell) => {
+        const strCell = String(cell);
+        if (strCell.includes(',')) {
+            return `"${strCell.replace(/"/g, '""')}"`;
+        }
+        return strCell;
+    };
 
     filteredTransactions.forEach(entry => {
-        const entryDate = new Date(entry.timestamp);
-        const dateStr = entryDate.toLocaleDateString(undefined, dateOptions);
-        const timeStr = entryDate.toLocaleTimeString(undefined, timeOptions);
-
         let costEach = parseFloat(entry.cost);
         const amount = parseFloat(entry.amount) || 0;
         if (isNaN(costEach) || costEach === 0) {
@@ -368,20 +438,33 @@ function exportToCsv() {
             }
         }
 
-        // --- ALSO FIXED HERE FOR THE EXPORT ---
         const totalCost = (entry.totalCost !== undefined && entry.totalCost !== null) ?
             parseFloat(entry.totalCost) :
             (entry.type === 'Cut' ? (costEach * amount * -1) : (costEach * amount));
 
-        // UPDATED: Added totalCost back to values
+        const safeTotalCost = isNaN(totalCost) ? 0 : totalCost;
+
+        // --- NEW: Get Sales and Profit ---
+        const totalSales = (entry.type === 'Cut' && entry.totalSales) ? parseFloat(entry.totalSales) : 0;
+        const profit = (totalSales > 0) ? totalSales + safeTotalCost : 0;
+
+        // Split Product Name and Size
+        const sizeMatch = entry.itemName.match(/\(([^)]+)\)$/);
+        const size = sizeMatch ? sizeMatch[1] : 'N/A';
+        const productName = sizeMatch ? entry.itemName.replace(sizeMatch[0], '').trim() : entry.itemName;
+
+        // Use raw, unformatted data
         const values = [
-            `"${dateStr}"`,
-            `"${timeStr}"`,
-            `"${entry.itemName.replace(/"/g, '""')}"`,
+            entry.timestamp,
+            entry.itemCode,
+            escapeCsvCell(productName),
+            escapeCsvCell(size),
             entry.type,
             amount,
             costEach.toFixed(2),
-            totalCost.toFixed(2),
+            safeTotalCost.toFixed(2),
+            totalSales.toFixed(2), // <-- NEW
+            profit.toFixed(2), // <-- NEW
             entry.newStock
         ];
         csvRows.push(values.join(","));
@@ -394,7 +477,7 @@ function exportToCsv() {
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
-    link.setAttribute("download", "transactions.csv");
+    link.setAttribute("download", "transactions_export.csv");
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
