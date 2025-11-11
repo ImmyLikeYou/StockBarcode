@@ -1,24 +1,35 @@
+const { app } = require('electron');
+
+// --- Handle Squirrel installer events for shortcuts ---
+if (require('electron-squirrel-startup')) {
+    app.quit();
+}
+
+// --- Import the rest of the modules ---
 const {
-    app,
     BrowserWindow,
-    ipcMain
+    ipcMain,
+    dialog
 } = require('electron');
 const path = require('path');
-const fs = require('fs').promises; // <-- Use promises-based fs
-const os = require('os'); // <-- Import os for path
+const fs = require('fs').promises;
+const os = require('os');
+// --- REMOVED: promisify and execFile are no longer needed ---
 
 let mainWindow;
 let isDev = false;
 
 // --- Data Handling ---
 const APP_NAME = 'BarcodeInventorySystem';
+// --- ADDED: Get app version from package.json ---
+const appVersion = require('./package.json').version;
 
 function getAppDataPath() {
     const basePath = app.getPath('userData');
     return path.join(basePath, 'app-data');
 }
 
-async function getDataFilePath(filename) { // <-- Make async
+async function getDataFilePath(filename) {
     const dataDir = getAppDataPath();
     try {
         await fs.mkdir(dataDir, {
@@ -26,11 +37,16 @@ async function getDataFilePath(filename) { // <-- Make async
         });
     } catch (e) {
         console.error("Failed to create app data directory", e);
+        dialog.showErrorBox(
+            'Fatal Error: Cannot Create Data Directory',
+            `Failed to create the application data directory at: ${dataDir}\n\nPlease check permissions and restart the app.\n\nError: ${e.message}`
+        );
+        app.quit();
     }
     return path.join(dataDir, filename);
 }
 
-async function ensureFileExists(filePath, defaultContent) { // <-- Make async
+async function ensureFileExists(filePath, defaultContent) {
     try {
         await fs.access(filePath);
     } catch {
@@ -38,7 +54,7 @@ async function ensureFileExists(filePath, defaultContent) { // <-- Make async
     }
 }
 
-async function loadFile(filePath) { // <-- Make async
+async function loadFile(filePath) {
     try {
         await ensureFileExists(filePath, filePath.endsWith('transactions.json') ? '[]' : '{}');
         const rawData = await fs.readFile(filePath);
@@ -60,15 +76,13 @@ async function loadFile(filePath) { // <-- Make async
     }
 }
 
-// --- NEW: Atomic Save Function ---
-async function saveFile(filePath, data) { // <-- Make async and atomic
+async function saveFile(filePath, data) {
     const tempPath = filePath + ".tmp";
     try {
         await fs.writeFile(tempPath, JSON.stringify(data, null, 2));
         await fs.rename(tempPath, filePath);
     } catch (error) {
         console.error(`Error writing ${filePath}:`, error);
-        // If rename fails, try to delete the temp file
         try {
             await fs.unlink(tempPath);
         } catch (unlinkError) {
@@ -76,6 +90,70 @@ async function saveFile(filePath, data) { // <-- Make async and atomic
         }
     }
 }
+
+// --- MODIFIED: MIGRATION SYSTEM ---
+/**
+ * Checks data version and runs any pending migration scripts.
+ */
+async function runMigrations() {
+    const SETTINGS_PATH = await getDataFilePath('settings.json');
+    let currentVersion = '0.0.0';
+
+    try {
+        const settingsData = await fs.readFile(SETTINGS_PATH, 'utf8');
+        currentVersion = JSON.parse(settingsData).dataVersion || '0.0.0';
+    } catch (e) {
+        console.log('No settings.json found, assuming first-time run.');
+    }
+
+    if (currentVersion === appVersion) {
+        console.log('Data version is up to date.');
+        return; // No migration needed
+    }
+
+    console.log(`Data version mismatch. App: ${appVersion}, Data: ${currentVersion}. Running migrations...`);
+
+    try {
+        // --- Migration 1: Restructure inventory.json and products.json ---
+        if (currentVersion < '1.0.1') {
+            console.log('Running migration_1.js...');
+            require('./migration.js'); // <-- FIXED: Run script directly
+            console.log('...migration_1.js complete.');
+        }
+
+        // --- Migration 2: Add default_cost to products.json ---
+        if (currentVersion < '1.0.2') {
+            console.log('Running migration_2.js...');
+            require('./migration_2.js'); // <-- FIXED: Run script directly
+            console.log('...migration_2.js complete.');
+        }
+
+        // --- Migration 3: Rename ONE_SIZE to F in inventory.json ---
+        if (currentVersion < '1.0.3') {
+            console.log('Running migration_3.js...');
+            require('./migration_3.js'); // <-- FIXED: Run script directly
+            console.log('...migration_3.js complete.');
+        }
+
+        // --- Add future migrations here ---
+
+        // 4. Update settings file with new version
+        await saveFile(SETTINGS_PATH, {
+            dataVersion: appVersion
+        });
+        console.log(`Migration complete. Data version updated to ${appVersion}.`);
+
+    } catch (err) {
+        console.error('CRITICAL MIGRATION FAILED:', err);
+        dialog.showErrorBox(
+            'Migration Failed',
+            `Failed to update application data. Please report this error.\n\nError: ${err.message}`
+        );
+        app.quit();
+    }
+}
+// --- END MIGRATION SYSTEM ---
+
 
 // --- Window ---
 function createWindow() {
@@ -105,6 +183,7 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
+        icon: path.join(__dirname, 'assets', 'icon.png'), // <-- Icon path
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -127,7 +206,7 @@ function createWindow() {
 }
 
 // --- Main logic ---
-async function init() { // <-- Make async
+async function init() {
     try {
         isDev = require('electron-is-dev');
     } catch (err) {
@@ -139,30 +218,26 @@ async function init() { // <-- Make async
         }
     }
 
-    // --- Use await with the async version ---
+    await runMigrations();
+
     const INVENTORY_PATH = await getDataFilePath('inventory.json');
     const TRANSACTIONS_PATH = await getDataFilePath('transactions.json');
     const PRODUCTS_PATH = await getDataFilePath('products.json');
     const CATEGORIES_PATH = await getDataFilePath('categories.json');
 
-    await ensureFileExists(INVENTORY_PATH, '{}');
-    await ensureFileExists(TRANSACTIONS_PATH, '[]');
-    await ensureFileExists(PRODUCTS_PATH, '{}');
-    await ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
-
-    // --- Convert all IPC handlers to async and use await for file I/O ---
-
-    ipcMain.handle('load-data', async () => ({
+    // --- IPC handlers ---
+    // (All handlers remain the same)
+    ipcMain.handle('load-data', async() => ({
         inventory: await loadFile(INVENTORY_PATH),
         transactions: await loadFile(TRANSACTIONS_PATH),
         products: await loadFile(PRODUCTS_PATH),
     }));
 
-    ipcMain.handle('get-categories', async () => {
+    ipcMain.handle('get-categories', async() => {
         return await loadFile(CATEGORIES_PATH);
     });
 
-    ipcMain.handle('add-category', async (event, categoryName) => {
+    ipcMain.handle('add-category', async(event, categoryName) => {
         if (!categoryName) {
             throw JSON.stringify({
                 message: 'error_category_name_empty'
@@ -178,7 +253,7 @@ async function init() { // <-- Make async
         };
     });
 
-    ipcMain.handle('update-category', async (event, {
+    ipcMain.handle('update-category', async(event, {
         id,
         newName
     }) => {
@@ -206,7 +281,7 @@ async function init() { // <-- Make async
         };
     });
 
-    ipcMain.handle('delete-category', async (event, {
+    ipcMain.handle('delete-category', async(event, {
         id
     }) => {
         if (!id) {
@@ -247,8 +322,7 @@ async function init() { // <-- Make async
     });
 
 
-    ipcMain.handle('add-product', async (event, productData) => {
-        // REMOVED sales_price from here
+    ipcMain.handle('add-product', async(event, productData) => {
         const {
             productName,
             principalCode,
@@ -277,7 +351,6 @@ async function init() { // <-- Make async
             name: productName,
             category_id: category_id || 'cat_0',
             default_cost: parseFloat(default_cost) || 0
-            // REMOVED sales_price field
         };
         inventory[newBarcode] = {};
 
@@ -290,7 +363,7 @@ async function init() { // <-- Make async
         };
     });
 
-    ipcMain.handle('delete-product', async (event, barcode) => {
+    ipcMain.handle('delete-product', async(event, barcode) => {
         if (!barcode) throw JSON.stringify({
             message: 'error_barcode_required'
         });
@@ -320,14 +393,14 @@ async function init() { // <-- Make async
         });
     });
 
-    ipcMain.handle('clear-log', async () => {
+    ipcMain.handle('clear-log', async() => {
         await saveFile(TRANSACTIONS_PATH, []);
         return {
             success: true
         };
     });
 
-    ipcMain.handle('get-product', async (event, barcode) => {
+    ipcMain.handle('get-product', async(event, barcode) => {
         if (!barcode) throw JSON.stringify({
             message: 'error_barcode_required'
         });
@@ -339,8 +412,7 @@ async function init() { // <-- Make async
         return product;
     });
 
-    ipcMain.handle('update-product', async (event, args) => {
-        // REMOVED sales_price from here
+    ipcMain.handle('update-product', async(event, args) => {
         const {
             barcode,
             productName,
@@ -365,7 +437,6 @@ async function init() { // <-- Make async
 
         products[barcode].name = productName;
         products[barcode].default_cost = parseFloat(default_cost) || 0;
-        // REMOVED sales_price update
 
         if (!inventory[barcode]) {
             inventory[barcode] = {};
@@ -389,8 +460,7 @@ async function init() { // <-- Make async
         };
     });
 
-    ipcMain.handle('process-transaction', async (event, args) => {
-        // --- ADD totalSalesPrice ---
+    ipcMain.handle('process-transaction', async(event, args) => {
         const {
             lookupValue,
             amount,
@@ -452,8 +522,6 @@ async function init() { // <-- Make async
 
         totalCost = (logType === 'Cut') ? (newCost * transactionAmount * -1) : (newCost * transactionAmount);
 
-        // --- ADD salesPrice logic ---
-        // Only save a sales price if it was a 'Cut' transaction
         const finalSalesPrice = (logType === 'Cut') ? (totalSalesPrice || 0) : 0;
 
         inventory[lookupValue][size] = {
@@ -470,7 +538,7 @@ async function init() { // <-- Make async
             newStock,
             cost: newCost,
             totalCost: totalCost,
-            totalSales: finalSalesPrice // <-- ADD THIS
+            totalSales: finalSalesPrice
         };
 
         transactions.push(newTransaction);
@@ -495,7 +563,7 @@ async function init() { // <-- Make async
         };
     });
 
-    ipcMain.handle('delete-transaction', async (event, {
+    ipcMain.handle('delete-transaction', async(event, {
         timestamp
     }) => {
         if (!timestamp) {

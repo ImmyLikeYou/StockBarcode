@@ -1,6 +1,6 @@
 {
     "name": "barcode-inventory-system",
-    "version": "1.0.3",
+    "version": "2.0.1",
     "description": "Barcode inventory system desktop app",
     "main": "main.js",
     "scripts": {
@@ -38,6 +38,7 @@
         "forge": {
             "packagerConfig": {
                 "asar": true,
+                "icon": "assets/AppIcon.ico",
                 "extraResources": [
                     "./frontend"
                 ]

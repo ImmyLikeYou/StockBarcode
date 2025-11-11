@@ -8,6 +8,11 @@ const app = express();
 const PORT = 3001;
 const APP_NAME = 'BarcodeInventorySystem';
 
+// --- ADDED: ---
+const appVersion = require('./package.json').version;
+// --- END ADD ---
+
+
 // --- 2. File Paths (Must be resolved before async routes) ---
 // We use sync methods here ONLY to set up initial paths.
 // All route handling will use async.
@@ -44,12 +49,15 @@ const INVENTORY_PATH = getSyncDataFilePath('inventory.json');
 const TRANSACTIONS_PATH = getSyncDataFilePath('transactions.json');
 const PRODUCTS_PATH = getSyncDataFilePath('products.json');
 const CATEGORIES_PATH = getSyncDataFilePath('categories.json');
+// --- ADDED: ---
+const SETTINGS_PATH = getSyncDataFilePath('settings.json');
 
 console.log('Using data files:');
 console.log('  INVENTORY_PATH ->', INVENTORY_PATH);
 console.log('  TRANSACTIONS_PATH ->', TRANSACTIONS_PATH);
 console.log('  PRODUCTS_PATH ->', PRODUCTS_PATH);
 console.log('  CATEGORIES_PATH ->', CATEGORIES_PATH);
+console.log('  SETTINGS_PATH ->', SETTINGS_PATH); // <-- ADDED
 
 // --- 3. Middleware ---
 app.use(express.json());
@@ -70,6 +78,8 @@ async function ensureFileExists(filePath, defaultContent) { // <-- Make async
 
 async function loadFile(filePath) { // <-- Make async
     try {
+        // --- MODIFIED: ensureFileExists is now ONLY called here (lazily) ---
+        await ensureFileExists(filePath, filePath.endsWith('transactions.json') ? '[]' : '{}');
         const rawData = await fs.readFile(filePath);
         if (rawData.length === 0) {
             return filePath.endsWith('transactions.json') ? [] : {};
@@ -106,6 +116,67 @@ async function saveFile(filePath, data) { // <-- Make async and atomic
     }
 }
 
+// --- MODIFIED: MIGRATION SYSTEM ---
+/**
+ * Checks data version and runs any pending migration scripts.
+ */
+async function runMigrations() {
+    let currentVersion = '0.0.0';
+
+    // 1. Get current data version
+    try {
+        const settingsData = await fs.readFile(SETTINGS_PATH, 'utf8');
+        currentVersion = JSON.parse(settingsData).dataVersion || '0.0.0';
+    } catch (e) {
+        console.log('No settings.json found, assuming first-time run.');
+    }
+
+    if (currentVersion === appVersion) {
+        console.log('Data version is up to date.');
+        return; // No migration needed
+    }
+
+    console.log(`Data version mismatch. App: ${appVersion}, Data: ${currentVersion}. Running migrations...`);
+
+    try {
+        // --- Migration 1 ---
+        if (currentVersion < '1.0.1') {
+            console.log('Running migration_1.js...');
+            require('./migration.js'); // <-- FIXED: Run script directly
+            console.log('...migration_1.js complete.');
+        }
+
+        // --- Migration 2 ---
+        if (currentVersion < '1.0.2') {
+            console.log('Running migration_2.js...');
+            require('./migration_2.js'); // <-- FIXED: Run script directly
+            console.log('...migration_2.js complete.');
+        }
+
+        // --- Migration 3 ---
+        if (currentVersion < '1.0.3') {
+            console.log('Running migration_3.js...');
+            require('./migration_3.js'); // <-- FIXED: Run script directly
+            console.log('...migration_3.js complete.');
+        }
+
+        // --- Add future migrations here ---
+
+        // 4. Update settings file with new version
+        await saveFile(SETTINGS_PATH, {
+            dataVersion: appVersion
+        });
+        console.log(`Migration complete. Data version updated to ${appVersion}.`);
+
+    } catch (err) {
+        console.error('CRITICAL MIGRATION FAILED:', err);
+        // In server mode, we just throw the error to stop the server
+        throw new Error(`Migration failed: ${err.message}`);
+    }
+}
+// --- END MIGRATION SYSTEM ---
+
+
 // --- 5. API Endpoints (Routes) ---
 
 // View Routes (remain synchronous)
@@ -136,12 +207,11 @@ app.get('/categories', (req, res) => {
 
 
 // API Routes (convert to async and use await)
-app.put('/api/product/:barcode', async (req, res) => { // <-- async
+app.put('/api/product/:barcode', async(req, res) => {
     try {
         const {
             barcode
         } = req.params;
-        // REMOVED sales_price
         const {
             productName,
             default_cost,
@@ -154,8 +224,8 @@ app.put('/api/product/:barcode', async (req, res) => { // <-- async
             });
         }
 
-        const products = await loadFile(PRODUCTS_PATH); // <-- await
-        const inventory = await loadFile(INVENTORY_PATH); // <-- await
+        const products = await loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
 
         if (!products[barcode]) {
             return res.status(404).json({
@@ -165,7 +235,6 @@ app.put('/api/product/:barcode', async (req, res) => { // <-- async
 
         products[barcode].name = productName;
         products[barcode].default_cost = parseFloat(default_cost) || 0;
-        // REMOVED sales_price
 
         if (!inventory[barcode]) {
             inventory[barcode] = {};
@@ -182,8 +251,8 @@ app.put('/api/product/:barcode', async (req, res) => { // <-- async
             }
         }
 
-        await saveFile(PRODUCTS_PATH, products); // <-- await
-        await saveFile(INVENTORY_PATH, inventory); // <-- await
+        await saveFile(PRODUCTS_PATH, products);
+        await saveFile(INVENTORY_PATH, inventory);
 
         res.status(200).json({
             message: 'Product updated successfully',
@@ -198,12 +267,12 @@ app.put('/api/product/:barcode', async (req, res) => { // <-- async
     }
 });
 
-app.get('/api/product/:barcode', async (req, res) => { // <-- async
+app.get('/api/product/:barcode', async(req, res) => {
     try {
         const {
             barcode
         } = req.params;
-        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        const products = await loadFile(PRODUCTS_PATH);
         const product = products[barcode];
         if (!product) return res.status(404).json({
             message: 'error_product_not_found'
@@ -217,11 +286,11 @@ app.get('/api/product/:barcode', async (req, res) => { // <-- async
     }
 });
 
-app.get('/api/data', async (req, res) => { // <-- async
+app.get('/api/data', async(req, res) => {
     try {
-        const inventory = await loadFile(INVENTORY_PATH); // <-- await
-        const transactions = await loadFile(TRANSACTIONS_PATH); // <-- await
-        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        const inventory = await loadFile(INVENTORY_PATH);
+        const transactions = await loadFile(TRANSACTIONS_PATH);
+        const products = await loadFile(PRODUCTS_PATH);
         res.json({
             inventory,
             transactions,
@@ -235,9 +304,9 @@ app.get('/api/data', async (req, res) => { // <-- async
     }
 });
 
-app.get('/api/categories', async (req, res) => { // <-- async
+app.get('/api/categories', async(req, res) => {
     try {
-        const categories = await loadFile(CATEGORIES_PATH); // <-- await
+        const categories = await loadFile(CATEGORIES_PATH);
         res.json(categories);
     } catch (err) {
         console.error('Error loading categories:', err);
@@ -247,7 +316,7 @@ app.get('/api/categories', async (req, res) => { // <-- async
     }
 });
 
-app.post('/api/category', async (req, res) => { // <-- async
+app.post('/api/category', async(req, res) => {
     try {
         const {
             categoryName
@@ -257,10 +326,10 @@ app.post('/api/category', async (req, res) => { // <-- async
                 message: 'error_category_name_empty'
             });
         }
-        const categories = await loadFile(CATEGORIES_PATH); // <-- await
+        const categories = await loadFile(CATEGORIES_PATH);
         const newId = `cat_${Date.now()}`;
         categories[newId] = categoryName;
-        await saveFile(CATEGORIES_PATH, categories); // <-- await
+        await saveFile(CATEGORIES_PATH, categories);
         res.status(201).json({
             id: newId,
             name: categoryName
@@ -273,7 +342,7 @@ app.post('/api/category', async (req, res) => { // <-- async
     }
 });
 
-app.put('/api/category/:id', async (req, res) => { // <-- async
+app.put('/api/category/:id', async(req, res) => {
     try {
         const {
             id
@@ -293,7 +362,7 @@ app.put('/api/category/:id', async (req, res) => { // <-- async
             });
         }
 
-        const categories = await loadFile(CATEGORIES_PATH); // <-- await
+        const categories = await loadFile(CATEGORIES_PATH);
         if (!categories[id]) {
             return res.status(404).json({
                 message: 'Category not found'
@@ -301,7 +370,7 @@ app.put('/api/category/:id', async (req, res) => { // <-- async
         }
 
         categories[id] = newName;
-        await saveFile(CATEGORIES_PATH, categories); // <-- await
+        await saveFile(CATEGORIES_PATH, categories);
         res.status(200).json({
             id,
             name: newName
@@ -314,7 +383,7 @@ app.put('/api/category/:id', async (req, res) => { // <-- async
     }
 });
 
-app.delete('/api/category/:id', async (req, res) => { // <-- async
+app.delete('/api/category/:id', async(req, res) => {
     try {
         const {
             id
@@ -325,8 +394,8 @@ app.delete('/api/category/:id', async (req, res) => { // <-- async
             });
         }
 
-        const categories = await loadFile(CATEGORIES_PATH); // <-- await
-        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        const categories = await loadFile(CATEGORIES_PATH);
+        const products = await loadFile(PRODUCTS_PATH);
 
         if (!categories[id]) {
             return res.status(404).json({
@@ -342,8 +411,8 @@ app.delete('/api/category/:id', async (req, res) => { // <-- async
             }
         }
 
-        await saveFile(CATEGORIES_PATH, categories); // <-- await
-        await saveFile(PRODUCTS_PATH, products); // <-- await
+        await saveFile(CATEGORIES_PATH, categories);
+        await saveFile(PRODUCTS_PATH, products);
 
         res.status(200).json({
             success: true,
@@ -357,9 +426,8 @@ app.delete('/api/category/:id', async (req, res) => { // <-- async
     }
 });
 
-app.post('/api/product', async (req, res) => { // <-- async
+app.post('/api/product', async(req, res) => {
     try {
-        // REMOVED sales_price
         const {
             productName,
             principalCode,
@@ -373,8 +441,8 @@ app.post('/api/product', async (req, res) => { // <-- async
             });
         }
 
-        const products = await loadFile(PRODUCTS_PATH); // <-- await
-        const inventory = await loadFile(INVENTORY_PATH); // <-- await
+        const products = await loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
         const newId = (Object.keys(products).length + 1).toString().padStart(4, '0');
         const newBarcode = `${principalCode}${typeCode}${newId}`;
 
@@ -388,12 +456,11 @@ app.post('/api/product', async (req, res) => { // <-- async
             name: productName,
             category_id: category_id || 'cat_0',
             default_cost: parseFloat(default_cost) || 0
-            // REMOVED sales_price
         };
         inventory[newBarcode] = {};
 
-        await saveFile(PRODUCTS_PATH, products); // <-- await
-        await saveFile(INVENTORY_PATH, inventory); // <-- await
+        await saveFile(PRODUCTS_PATH, products);
+        await saveFile(INVENTORY_PATH, inventory);
 
         res.status(201).json({
             name: productName,
@@ -407,13 +474,13 @@ app.post('/api/product', async (req, res) => { // <-- async
     }
 });
 
-app.delete('/api/product/:barcode', async (req, res) => { // <-- async
+app.delete('/api/product/:barcode', async(req, res) => {
     try {
         const {
             barcode
         } = req.params;
-        const products = await loadFile(PRODUCTS_PATH); // <-- await
-        const inventory = await loadFile(INVENTORY_PATH); // <-- await
+        const products = await loadFile(PRODUCTS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
         let deleted = false;
 
         if (products[barcode]) {
@@ -426,8 +493,8 @@ app.delete('/api/product/:barcode', async (req, res) => { // <-- async
         }
 
         if (deleted) {
-            await saveFile(PRODUCTS_PATH, products); // <-- await
-            await saveFile(INVENTORY_PATH, inventory); // <-- await
+            await saveFile(PRODUCTS_PATH, products);
+            await saveFile(INVENTORY_PATH, inventory);
             res.status(200).json({
                 message: 'Product deleted successfully'
             });
@@ -444,8 +511,7 @@ app.delete('/api/product/:barcode', async (req, res) => { // <-- async
     }
 });
 
-app.post('/api/transaction', async (req, res) => { // <-- async
-    // --- ADD totalSalesPrice ---
+app.post('/api/transaction', async(req, res) => {
     const {
         lookupValue,
         amount,
@@ -463,9 +529,9 @@ app.post('/api/transaction', async (req, res) => { // <-- async
     }
 
     try {
-        const inventory = await loadFile(INVENTORY_PATH); // <-- await
-        const transactions = await loadFile(TRANSACTIONS_PATH); // <-- await
-        const products = await loadFile(PRODUCTS_PATH); // <-- await
+        const inventory = await loadFile(INVENTORY_PATH);
+        const transactions = await loadFile(TRANSACTIONS_PATH);
+        const products = await loadFile(PRODUCTS_PATH);
 
         const product = products[lookupValue];
         const itemName = product ? product.name : "Unknown Item";
@@ -529,8 +595,6 @@ app.post('/api/transaction', async (req, res) => { // <-- async
 
         totalCost = (logType === 'Cut') ? (newCost * transactionAmount * -1) : (newCost * transactionAmount);
 
-        // --- ADD salesPrice logic ---
-        // Only save a sales price if it was a 'Cut' transaction
         const finalSalesPrice = (logType === 'Cut') ? (totalSalesPrice || 0) : 0;
 
         inventory[lookupValue][size] = {
@@ -547,12 +611,12 @@ app.post('/api/transaction', async (req, res) => { // <-- async
             newStock: newStock,
             cost: newCost,
             totalCost: totalCost,
-            totalSales: finalSalesPrice // <-- ADD THIS
+            totalSales: finalSalesPrice
         };
         transactions.push(newTransaction);
 
-        await saveFile(INVENTORY_PATH, inventory); // <-- await
-        await saveFile(TRANSACTIONS_PATH, transactions); // <-- await
+        await saveFile(INVENTORY_PATH, inventory);
+        await saveFile(TRANSACTIONS_PATH, transactions);
 
         let message = `OK: ${logType} ${amount} ${itemName} (${size}). New stock: ${newStock}`;
         if (mode === 'adjust') {
@@ -577,9 +641,9 @@ app.post('/api/transaction', async (req, res) => { // <-- async
     }
 });
 
-app.delete('/api/log', async (req, res) => { // <-- async
+app.delete('/api/log', async(req, res) => {
     try {
-        await saveFile(TRANSACTIONS_PATH, []); // <-- await
+        await saveFile(TRANSACTIONS_PATH, []);
         res.status(200).json({
             message: 'Transaction log cleared'
         });
@@ -591,7 +655,7 @@ app.delete('/api/log', async (req, res) => { // <-- async
     }
 });
 
-app.delete('/api/transaction/:timestamp', async (req, res) => { // <-- async
+app.delete('/api/transaction/:timestamp', async(req, res) => {
     try {
         const {
             timestamp
@@ -602,8 +666,8 @@ app.delete('/api/transaction/:timestamp', async (req, res) => { // <-- async
             });
         }
 
-        const transactions = await loadFile(TRANSACTIONS_PATH); // <-- await
-        const inventory = await loadFile(INVENTORY_PATH); // <-- await
+        const transactions = await loadFile(TRANSACTIONS_PATH);
+        const inventory = await loadFile(INVENTORY_PATH);
 
         let transactionFound = false;
         let transactionIndex = -1;
@@ -637,8 +701,8 @@ app.delete('/api/transaction/:timestamp', async (req, res) => { // <-- async
         inventory[tx.itemCode][size].stock -= tx.amount;
         transactions.splice(transactionIndex, 1);
 
-        await saveFile(INVENTORY_PATH, inventory); // <-- await
-        await saveFile(TRANSACTIONS_PATH, transactions); // <-- await
+        await saveFile(INVENTORY_PATH, inventory);
+        await saveFile(TRANSACTIONS_PATH, transactions);
 
         res.status(200).json({
             success: true,
@@ -647,19 +711,20 @@ app.delete('/api/transaction/:timestamp', async (req, res) => { // <-- async
 
     } catch (err) {
         console.error('Error deleting transaction:', err);
-        res.status(500).json({
+        res.status(5, C0).json({
             message: 'Server error deleting transaction'
         });
     }
 });
 
 // --- 6. Start the Server ---
-// We must ensure the files exist before starting the server.
 async function startServer() {
-    await ensureFileExists(INVENTORY_PATH, '{}');
-    await ensureFileExists(TRANSACTIONS_PATH, '[]');
-    await ensureFileExists(PRODUCTS_PATH, '{}');
-    await ensureFileExists(CATEGORIES_PATH, '{"cat_0": "Default"}');
+    try {
+        await runMigrations();
+    } catch (err) {
+        console.error("CRITICAL: MIGRATION FAILED. Server will not start.", err);
+        process.exit(1); // Exit if migrations fail
+    }
 
     app.listen(PORT, () => {
         console.log(`Inventory server running on http://localhost:${PORT}`);
